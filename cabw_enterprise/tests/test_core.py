@@ -8,11 +8,13 @@ Covers:
 - IntegratedAgent
 - EmotionalState / EmotionalContagion
 - Team / TeamManager / SharedGoal
+- Memory DB model (rehearsal strengthening cap)
 """
 import pytest
 from cabw.core.integrated_agent import IntegratedAgent, AgentMemory, AgentNeeds, AgentStats
 from cabw.core.emotions import EmotionalState, EmotionType, MoodState, EmotionalContagion
 from cabw.core.teamwork import Team, TeamRole, SharedGoal, GoalStatus, GoalObjective, TeamManager
+from cabw.db.models import Memory
 
 
 # ============================================================
@@ -478,3 +480,56 @@ class TestTeamManager:
         team.add_member('agent-2')
         active = manager.get_active_teams()
         assert any(t.id == team.id for t in active)
+
+
+# ============================================================
+# Memory DB model — rehearsal strengthening cap
+# ============================================================
+
+class TestMemoryRehearsalCap:
+    """Tests for Memory.rehearse() and its strength ceiling."""
+
+    def _make_memory_like(self, strength: float = 1.0, rehearsal_count: int = 0):
+        """
+        Create a SimpleNamespace that mirrors the Memory model's attribute
+        interface.  This avoids triggering SQLAlchemy's full mapper
+        initialisation (which is blocked by a pre-existing ORM configuration
+        issue in Agent.actions) while still exercising the rehearse() method.
+        """
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            strength=strength,
+            rehearsal_count=rehearsal_count,
+            MAX_REHEARSAL_STRENGTH=Memory.MAX_REHEARSAL_STRENGTH,
+        )
+
+    def test_rehearse_increments_rehearsal_count(self):
+        mem = self._make_memory_like()
+        Memory.rehearse(mem)
+        assert mem.rehearsal_count == 1
+        assert mem.strength == pytest.approx(1.0 + 0.1)  # default boost = 0.1
+
+    def test_rehearse_increases_strength(self):
+        mem = self._make_memory_like(strength=1.0)
+        Memory.rehearse(mem, boost=0.5)
+        assert mem.strength > 1.0
+
+    def test_rehearse_returns_new_strength(self):
+        mem = self._make_memory_like(strength=1.0)
+        result = Memory.rehearse(mem, boost=0.3)
+        assert result == mem.strength
+
+    def test_rehearse_does_not_exceed_cap(self):
+        mem = self._make_memory_like(strength=Memory.MAX_REHEARSAL_STRENGTH - 0.05)
+        Memory.rehearse(mem, boost=1.0)
+        assert mem.strength == Memory.MAX_REHEARSAL_STRENGTH
+
+    def test_rehearse_many_times_stays_at_cap(self):
+        mem = self._make_memory_like(strength=1.0)
+        for _ in range(1000):
+            Memory.rehearse(mem, boost=0.1)
+        assert mem.strength == Memory.MAX_REHEARSAL_STRENGTH
+
+    def test_max_rehearsal_strength_constant_exists(self):
+        assert hasattr(Memory, "MAX_REHEARSAL_STRENGTH")
+        assert Memory.MAX_REHEARSAL_STRENGTH > 0

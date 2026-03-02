@@ -482,6 +482,13 @@ cabw_enterprise/
 
 MIT License - See LICENSE file
 
+## Known Constraints
+
+- Simulation is single-threaded; tick performance degrades beyond ~200 agents
+- Relationship decay assumes uniform time — no support for subjective time dilation
+- Constitutional constraints evaluate sequentially; constraint interaction effects are not modeled
+- Memory rehearsal strengthening is capped at `Memory.MAX_REHEARSAL_STRENGTH` (default `5.0`); adjust for your use case
+
 ## Acknowledgments
 
 - PAD emotional model: Mehrabian & Russell
