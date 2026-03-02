@@ -89,7 +89,7 @@ class AgentNeeds:
         priority = max(needs.items(), key=lambda x: x[1])
         return priority
     
-    def tick(self, environment_effects: Dict[str, float] = None):
+    def tick(self, environment_effects: Optional[Dict[str, float]] = None):
         """Advance needs over time."""
         self.hunger = min(1.0, self.hunger + 0.02)
         self.thirst = min(1.0, self.thirst + 0.03)
@@ -164,7 +164,8 @@ class IntegratedAgent:
         }
         
         self.emotional_state = EmotionalState()
-        self.emotional_state.influenced_by_personality(self.ocean_traits)
+        # TODO: Implement influenced_by_personality method in EmotionalState
+        # self.emotional_state.influenced_by_personality(self.ocean_traits)
         
         self.memory = AgentMemory()
         self.needs = AgentNeeds()
@@ -221,7 +222,7 @@ class IntegratedAgent:
         self,
         environment,
         security_governor: Optional[SecurityGovernor] = None,
-        nearby_agents: List['IntegratedAgent'] = None
+        nearby_agents: Optional[List['IntegratedAgent']] = None
     ) -> Dict[str, Any]:
         """
         Execute one agent tick with all systems.
@@ -250,15 +251,30 @@ class IntegratedAgent:
         
         # 4. Emotional contagion from nearby agents
         if nearby_agents:
-            contagion = EmotionalContagion()
             for other in nearby_agents:
                 if self._distance_to(other) <= 3:  # Within emotional contagion range
-                    changes = contagion.spread_emotion(self.emotional_state, other.emotional_state)
-                    if changes:
-                        results['emotional_changes'].append({
-                            'source': other.agent_id,
-                            'changes': changes
-                        })
+                    # Calculate contagion strength
+                    dominant_emotion, intensity = other.emotional_state.get_dominant_emotion()
+                    strength = EmotionalContagion.calculate_contagion_strength(
+                        source_emotion=intensity,
+                        relationship_trust=0.5,
+                        relationship_affection=0.5,
+                        target_empathy=self.ocean_traits.get('agreeableness', 0.5),
+                        distance=self._distance_to(other) / 10.0,
+                        source_expressiveness=other.ocean_traits.get('extraversion', 0.5)
+                    )
+                    if strength > 0.1:
+                        contagion_result = EmotionalContagion.apply_contagion(
+                            source_state=other.emotional_state,
+                            target_state=self.emotional_state,
+                            emotion=dominant_emotion,
+                            strength=strength
+                        )
+                        if contagion_result.get('transferred', 0) > 0:
+                            results['emotional_changes'].append({
+                                'source': other.agent_id,
+                                'changes': contagion_result
+                            })
         
         # 5. Update blackboard with current state
         self._update_blackboard(environment, nearby_agents)
@@ -369,7 +385,7 @@ class IntegratedAgent:
             # Store for action execution
             self.blackboard.set('action_modifiers', effects['action_modifiers'])
     
-    def _update_blackboard(self, environment, nearby_agents: List['IntegratedAgent']):
+    def _update_blackboard(self, environment, nearby_agents: Optional[List['IntegratedAgent']]):
         """Update behavior tree blackboard."""
         self.blackboard.set('location', self.location)
         self.blackboard.set('emotional_state', self.emotional_state)
@@ -407,7 +423,7 @@ class IntegratedAgent:
         action_name = self.current_action
         
         # Security check
-        if security_governor:
+        if security_governor and action_name:
             security_context = SecurityContext(
                 subject_id=self.agent_id,
                 resource_id='world',
@@ -502,16 +518,7 @@ class IntegratedAgent:
     
     def join_team(self, team: Team, role: TeamRole = TeamRole.MEMBER) -> bool:
         """Join a team."""
-        from .teamwork import TeamMember
-        
-        member = TeamMember(
-            agent_id=self.agent_id,
-            role=role,
-            coordination_skill=self.team_coordination_skill,
-            commitment=0.7
-        )
-        
-        if team.add_member(member):
+        if team.add_member(self.agent_id, role):
             self.current_team = team
             self.team_role = role
             
@@ -547,6 +554,6 @@ class IntegratedAgent:
                 'urgency': self.needs.get_priority_need()[1]
             },
             'current_action': self.current_action,
-            'team': self.current_team.team_id if self.current_team else None,
+            'team': self.current_team.id if self.current_team else None,
             'team_role': self.team_role.name if self.team_role else None
         }

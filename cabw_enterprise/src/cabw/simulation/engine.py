@@ -21,7 +21,6 @@ from ..core.teamwork import Team, TeamManager, SharedGoal, GoalTemplates
 from ..core.emotions import GroupEmotionalClimate
 from ..core.behavior_tree import BehaviorTreeLibrary
 from ..governance.security import SecurityGovernor, SecurityPolicy, Capability
-from ..db.models import SimulationState
 
 
 @dataclass
@@ -61,8 +60,8 @@ class EnhancedSimulation:
     Full-featured simulation engine with all advanced systems.
     """
     
-    def __init__(self, config: SimulationConfig = None):
-        self.config = config or SimulationConfig()
+    def __init__(self, config: Optional[SimulationConfig] = None):
+        self.config = config if config is not None else SimulationConfig()
         
         # Core systems
         self.environment = WorldEnvironment(self.config.world_size)
@@ -85,7 +84,7 @@ class EnhancedSimulation:
         self.agent_action_log: List[Dict[str, Any]] = []
         
         # Group emotional climate
-        self.emotional_climate = GroupEmotionalClimate()
+        self.emotional_climate = GroupEmotionalClimate(group_id="simulation_main")
         
         # Statistics
         self.statistics = {
@@ -245,13 +244,15 @@ class EnhancedSimulation:
             self._log_event('hazard_spawned', {'hazard_id': hazard_id})
         
         # 2. Update group emotional climate
-        agent_emotions = {
-            agent_id: agent.emotional_state 
-            for agent_id, agent in self.agents.items()
-        }
-        self.emotional_climate.update_climate(agent_emotions)
+        for agent_id, agent in self.agents.items():
+            self.emotional_climate.member_emotions[agent_id] = agent.emotional_state
+        self.emotional_climate._update_climate()
         
-        # 3. Process agents
+        # 3. Update teams
+        team_changes = self.team_manager.update_all_teams()
+        tick_results['team_results'] = team_changes
+        
+        # 4. Process agents
         for agent_id, agent in self.agents.items():
             if not agent.stats.is_alive():
                 continue
@@ -287,15 +288,12 @@ class EnhancedSimulation:
         if self.config.teamwork_enabled and self.config.auto_form_teams:
             self._process_team_formation()
         
-        # 5. Update teams and goals
-        if self.config.teamwork_enabled:
-            team_results = self.team_manager.update_teams()
-            tick_results['team_results'] = team_results
-            
-            # Track completed goals
-            for result in team_results.values():
-                if result.get('goal_completed'):
-                    self.statistics['goals_completed'] += 1
+        # 5. Track completed goals from team updates
+        if self.config.teamwork_enabled and team_changes:
+            for changes in team_changes.values():
+                for change in changes:
+                    if change.get('new_status') == 'COMPLETED':
+                        self.statistics['goals_completed'] += 1
         
         # 6. Check for environmental events requiring response
         self._process_environmental_events()
@@ -355,16 +353,15 @@ class EnhancedSimulation:
                         role = TeamRole.LEADER if not team.members else TeamRole.MEMBER
                         member = TeamMember(
                             agent_id=agent.agent_id,
-                            role=role,
-                            coordination_skill=agent.team_coordination_skill
+                            role=role
                         )
-                        team.add_member(member)
+                        team.add_member(agent.agent_id, role)
                         agent.current_team = team
                         agent.team_role = role
                     
                     self.statistics['team_formations'] += 1
                     self._log_event('team_formed', {
-                        'team_id': team.team_id,
+                        'team_id': team.id,
                         'purpose': 'hazard_response',
                         'hazard_id': hazard.hazard_id,
                         'members': list(team.members.keys())
@@ -382,11 +379,13 @@ class EnhancedSimulation:
                 
                 if not has_team:
                     # Create response goal
-                    goal = GoalTemplates.emergency_response(
-                        f"Respond to {event.name}",
-                        urgency=0.8
+                    goal = GoalTemplates.create_defend_goal(
+                        target=event.name,
+                        duration=10
                     )
-                    self.team_manager.assign_goal_to_team(goal)
+                    team = self.team_manager.find_team_for_goal(goal)
+                    if team:
+                        team.add_goal(goal)
     
     def create_team_goal(
         self,
@@ -395,34 +394,41 @@ class EnhancedSimulation:
         **params
     ) -> Optional[SharedGoal]:
         """Create and assign a goal to a team."""
-        team = self.team_manager.get_team(team_id)
+        team = self.team_manager.teams.get(team_id)
         if not team:
             return None
         
         # Create goal from template
         if goal_type == 'exploration':
-            goal = GoalTemplates.exploration(**params)
-        elif goal_type == 'resource_gathering':
-            goal = GoalTemplates.resource_gathering(**params)
+            goal = GoalTemplates.create_gather_goal(
+                item=params.get('item', 'resource'),
+                count=params.get('count', 10)
+            )
         elif goal_type == 'defense':
-            goal = GoalTemplates.defense(**params)
-        elif goal_type == 'construction':
-            goal = GoalTemplates.construction(**params)
-        elif goal_type == 'emergency_response':
-            goal = GoalTemplates.emergency_response(**params)
+            goal = GoalTemplates.create_defend_goal(
+                target=params.get('target', 'base'),
+                duration=params.get('duration', 10)
+            )
+        elif goal_type == 'combat':
+            goal = GoalTemplates.create_assault_goal(
+                target=params.get('target', 'enemy')
+            )
+        elif goal_type == 'escort':
+            goal = GoalTemplates.create_escort_goal(
+                target=params.get('target', 'vip'),
+                destination=params.get('destination', 'safe_zone')
+            )
         else:
             return None
         
         # Assign to team
-        if self.team_manager.assign_goal_to_team(goal, team_id):
-            self._log_event('goal_assigned', {
-                'team_id': team_id,
-                'goal_type': goal_type,
-                'goal_id': goal.goal_id
-            })
-            return goal
-        
-        return None
+        team.add_goal(goal)
+        self._log_event('goal_assigned', {
+            'team_id': team_id,
+            'goal_type': goal_type,
+            'goal_id': goal.id
+        })
+        return goal
     
     def trigger_event(self, event_type: str, **kwargs) -> Any:
         """Manually trigger an environmental event."""
@@ -447,15 +453,11 @@ class EnhancedSimulation:
                 team_id: {
                     'member_count': len(team.members),
                     'active_goals': len(team.active_goals),
-                    'cohesion': team.get_team_cohesion()
+                    'coordination_bonus': team.get_coordination_bonus()
                 }
                 for team_id, team in self.team_manager.teams.items()
             },
-            'emotional_climate': {
-                'dominant': self.emotional_climate.get_dominant_emotion(),
-                'intensity': self.emotional_climate.get_emotional_intensity(),
-                'stability': self.emotional_climate.get_climate_stability()
-            },
+            'emotional_climate': self.emotional_climate.to_dict(),
             'statistics': self.statistics
         }
     

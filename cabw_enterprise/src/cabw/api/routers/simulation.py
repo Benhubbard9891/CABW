@@ -103,7 +103,7 @@ async def create_simulation(config: SimulationConfigRequest):
     return {
         "simulation_id": sim_id,
         "status": "created",
-        "agents_created": len(simulation.agents)
+        "agents_created": str(len(simulation.agents))
     }
 
 
@@ -192,7 +192,7 @@ async def list_agents(sim_id: str):
                 "health": agent.stats.health,
                 "alive": agent.stats.is_alive(),
                 "emotional_state": agent.emotional_state.get_dominant_emotion(),
-                "team": agent.current_team.team_id if agent.current_team else None
+                "team": agent.current_team.id if agent.current_team else None
             }
             for agent_id, agent in simulation.agents.items()
         ]
@@ -252,7 +252,7 @@ async def list_teams(sim_id: str):
                 "name": team.name,
                 "member_count": len(team.members),
                 "active_goals": len(team.active_goals),
-                "cohesion": team.get_team_cohesion(),
+                "coordination_bonus": team.get_coordination_bonus(),
                 "members": list(team.members.keys())
             }
             for team_id, team in simulation.team_manager.teams.items()
@@ -274,17 +274,13 @@ async def create_team(sim_id: str, request: TeamCreateRequest):
     for agent_id in request.member_ids:
         agent = simulation.agents.get(agent_id)
         if agent:
-            from ...core.teamwork import TeamMember, TeamRole
-            member = TeamMember(
-                agent_id=agent_id,
-                role=TeamRole.LEADER if not team.members else TeamRole.MEMBER,
-                coordination_skill=agent.team_coordination_skill
-            )
-            team.add_member(member)
+            from ...core.teamwork import TeamRole
+            role = TeamRole.LEADER if not team.members else TeamRole.MEMBER
+            team.add_member(agent_id, role)
             agent.current_team = team
     
     return {
-        "team_id": team.team_id,
+        "team_id": team.id,
         "name": team.name,
         "members_added": len(request.member_ids)
     }
@@ -308,7 +304,7 @@ async def assign_team_goal(sim_id: str, request: GoalAssignRequest):
         raise HTTPException(status_code=400, detail="Failed to assign goal")
     
     return {
-        "goal_id": goal.goal_id,
+        "goal_id": goal.id,
         "team_id": request.team_id,
         "goal_type": request.goal_type,
         "status": "assigned"

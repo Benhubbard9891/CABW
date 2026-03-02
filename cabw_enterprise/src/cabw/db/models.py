@@ -305,25 +305,26 @@ class Simulation(Base):
     owner_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     world_id: Mapped[UUID] = mapped_column(ForeignKey("worlds.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(255))
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     status: Mapped[SimulationStatus] = mapped_column(
         SQLEnum(SimulationStatus),
         default=SimulationStatus.PENDING
     )
     
     # Configuration
-    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     tick_rate: Mapped[float] = mapped_column(Float, default=1.0)
     max_ticks: Mapped[int] = mapped_column(Integer, default=1000)
+    current_tick: Mapped[int] = mapped_column(Integer, default=0)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Progress
-    current_tick: Mapped[int] = mapped_column(Integer, default=0)
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     
     # Results
-    results: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    results: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=None)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     
     # Relationships
     owner: Mapped["User"] = relationship(back_populates="simulations", init=False)
@@ -363,10 +364,11 @@ class SimulationEvent(Base):
     simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"))
     tick: Mapped[int] = mapped_column(Integer)
     event_type: Mapped[str] = mapped_column(String(100))
-    source_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True)
-    target_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True)
-    data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    
     priority: Mapped[int] = mapped_column(Integer, default=0)
+    source_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True, default=None)
+    target_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True, default=None)
+    data: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     simulation: Mapped["Simulation"] = relationship(back_populates="events", init=False)
@@ -384,12 +386,13 @@ class AgentAction(Base):
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
     tick: Mapped[int] = mapped_column(Integer)
     action_type: Mapped[str] = mapped_column(String(100))
-    target_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True)
-    target_zone_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("zones.id"), nullable=True)
-    params: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    
     cost: Mapped[float] = mapped_column(Float, default=0.0)
     approved: Mapped[bool] = mapped_column(Boolean, default=True)
-    outcome: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True)
+    target_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("agents.id"), nullable=True, default=None)
+    target_zone_id: Mapped[Optional[UUID]] = mapped_column(ForeignKey("zones.id"), nullable=True, default=None)
+    params: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
+    outcome: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, nullable=True, default=None)
     
     # Relationships
     agent: Mapped["Agent"] = relationship(back_populates="actions", init=False)
@@ -407,19 +410,20 @@ class AuditRecord(Base):
     simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"))
     tick: Mapped[int] = mapped_column(Integer)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
-    action_id: Mapped[Optional[UUID]] = mapped_column(
-        ForeignKey("agent_actions.id"),
-        nullable=True
-    )
     
     # Decision
     decision_type: Mapped[str] = mapped_column(String(50))
     approved: Mapped[bool] = mapped_column(Boolean, default=True)
-    violations: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
-    permits: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    action_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("agent_actions.id"),
+        nullable=True,
+        default=None
+    )
+    violations: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default_factory=list)
+    permits: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default_factory=list)
     
     # Agent state snapshot
-    agent_state: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    agent_state: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     simulation: Mapped["Simulation"] = relationship(back_populates="audit_records", init=False)
@@ -431,10 +435,11 @@ class Constitution(Base):
     __tablename__ = "constitutions"
     
     name: Mapped[str] = mapped_column(String(255))
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     version: Mapped[str] = mapped_column(String(50), default="1.0.0")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    rules: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default=list)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    rules: Mapped[List[Dict[str, Any]]] = mapped_column(JSON, default_factory=list)
     
     # Relationships
     simulations: Mapped[List["Simulation"]] = relationship(
@@ -448,7 +453,8 @@ class Constitution(Base):
 # Add constitution relationship to Simulation
 Simulation.constitution_id: Mapped[Optional[UUID]] = mapped_column(
     ForeignKey("constitutions.id"),
-    nullable=True
+    nullable=True,
+    default=None
 )
 Simulation.constitution: Mapped[Optional["Constitution"]] = relationship(
     back_populates="simulations",
