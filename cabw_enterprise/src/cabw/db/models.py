@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import (
@@ -246,6 +246,10 @@ class Memory(Base):
         Index("ix_memory_agent_strength", "agent_id", "strength"),
         Index("ix_memory_type", "memory_type"),
     )
+
+    # Maximum strength a memory can reach through rehearsal.
+    # Caps unbounded growth in long-running simulations.
+    MAX_REHEARSAL_STRENGTH: ClassVar[float] = 5.0
     
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
     content: Mapped[str] = mapped_column(Text)
@@ -259,6 +263,20 @@ class Memory(Base):
     
     # Relationships
     agent: Mapped["Agent"] = relationship(back_populates="memories", init=False)
+
+    def rehearse(self, boost: float = 0.1) -> float:
+        """
+        Reinforce this memory through rehearsal.
+
+        Increments ``rehearsal_count`` and increases ``strength`` by *boost*,
+        but never beyond ``MAX_REHEARSAL_STRENGTH``.  This cap prevents
+        unbounded growth in long-running simulations.
+
+        Returns the new strength value.
+        """
+        self.rehearsal_count += 1
+        self.strength = min(self.MAX_REHEARSAL_STRENGTH, self.strength + boost)
+        return self.strength
 
 
 class Relationship(Base):
