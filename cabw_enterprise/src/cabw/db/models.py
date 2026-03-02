@@ -105,12 +105,13 @@ class World(Base):
     __tablename__ = "worlds"
     
     name: Mapped[str] = mapped_column(String(255))
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    
     version: Mapped[str] = mapped_column(String(50), default="1.0.0")
-    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     width: Mapped[int] = mapped_column(Integer, default=10)
     height: Mapped[int] = mapped_column(Integer, default=10)
     is_template: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     zones: Mapped[List["Zone"]] = relationship(
@@ -140,12 +141,13 @@ class Zone(Base):
     world_id: Mapped[UUID] = mapped_column(ForeignKey("worlds.id", ondelete="CASCADE"))
     x: Mapped[int] = mapped_column(Integer)
     y: Mapped[int] = mapped_column(Integer)
+    
     terrain: Mapped[str] = mapped_column(String(50), default="grass")
     cover: Mapped[float] = mapped_column(Float, default=0.5)
     visibility: Mapped[float] = mapped_column(Float, default=0.5)
-    hazard_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     hazard_severity: Mapped[float] = mapped_column(Float, default=0.0)
-    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    hazard_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
+    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     world: Mapped["World"] = relationship(back_populates="zones", init=False)
@@ -165,10 +167,11 @@ class WorldObject(Base):
     
     zone_id: Mapped[UUID] = mapped_column(ForeignKey("zones.id", ondelete="CASCADE"))
     object_type: Mapped[str] = mapped_column(String(50))
-    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
     is_interactable: Mapped[bool] = mapped_column(Boolean, default=True)
-    tags: Mapped[List[str]] = mapped_column(JSON, default=list)
-    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    tags: Mapped[List[str]] = mapped_column(JSON, default_factory=list)
+    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     zone: Mapped["Zone"] = relationship(back_populates="objects", init=False)
@@ -181,13 +184,15 @@ class Agent(Base):
     
     simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(255))
+    
     agent_type: Mapped[str] = mapped_column(String(50), default="npc")
     status: Mapped[AgentStatus] = mapped_column(SQLEnum(AgentStatus), default=AgentStatus.ACTIVE)
     
     # Position
     zone_id: Mapped[Optional[UUID]] = mapped_column(
         ForeignKey("zones.id", ondelete="SET NULL"),
-        nullable=True
+        nullable=True,
+        default=None
     )
     
     # Vitals
@@ -210,10 +215,10 @@ class Agent(Base):
     dominance: Mapped[float] = mapped_column(Float, default=0.0)
     
     # State
-    inventory: Mapped[List[str]] = mapped_column(JSON, default=list)
-    goals: Mapped[List[str]] = mapped_column(JSON, default=list)
-    current_goal: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    inventory: Mapped[List[str]] = mapped_column(JSON, default_factory=list)
+    goals: Mapped[List[str]] = mapped_column(JSON, default_factory=list)
+    current_goal: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    properties: Mapped[Dict[str, Any]] = mapped_column(JSON, default_factory=dict)
     
     # Relationships
     simulation: Mapped["Simulation"] = relationship(back_populates="agents", init=False)
@@ -244,12 +249,13 @@ class Memory(Base):
     
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
     content: Mapped[str] = mapped_column(Text)
+    
     memory_type: Mapped[str] = mapped_column(String(50), default="observation")
     emotional_salience: Mapped[float] = mapped_column(Float, default=0.5)
     strength: Mapped[float] = mapped_column(Float, default=1.0)
     rehearsal_count: Mapped[int] = mapped_column(Integer, default=0)
-    participants: Mapped[List[str]] = mapped_column(JSON, default=list)
     is_forgotten: Mapped[bool] = mapped_column(Boolean, default=False)
+    participants: Mapped[List[str]] = mapped_column(JSON, default_factory=list)
     
     # Relationships
     agent: Mapped["Agent"] = relationship(back_populates="memories", init=False)
