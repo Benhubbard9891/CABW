@@ -5,16 +5,16 @@ CABW Simulation Module
 - deterministic: Event-queue architecture for replay
 """
 
-from .engine import EnhancedSimulation, SimulationConfig
 from .deterministic import (
+    DeterministicSimulation,
+    EventQueue,
     EventType,
+    ReplayVerifier,
+    SeededRandom,
     SimulationEvent,
     SimulationSeed,
-    SeededRandom,
-    EventQueue,
-    DeterministicSimulation,
-    ReplayVerifier
 )
+from .engine import EnhancedSimulation, SimulationConfig
 
 __all__ = [
     'EnhancedSimulation',

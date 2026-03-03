@@ -4,13 +4,15 @@ __version__ = "3.0.0"
 __author__ = "CABW Development Team"
 __license__ = "MIT"
 
-from cabw.core.psychology import PAD, OCEAN, PrimaryEmotion, ComplexEmotion
-from cabw.core.actions import ActionType, Action, ActionPlan
-from cabw.core.memory import MemoryTrace, MemorySystem
+from cabw.core.actions import Action, ActionPlan, ActionType
+from cabw.core.memory import MemorySystem, MemoryTrace
+from cabw.core.psychology import OCEAN, PAD, ComplexEmotion, PrimaryEmotion
 from cabw.core.relationships import Relationship, SocialNetwork
 from cabw.governance.constraints import (
-    ConstraintType, EnforcementLevel,
-    ConstitutionalConstraint, GovernanceKernel
+    ConstitutionalConstraint,
+    ConstraintType,
+    EnforcementLevel,
+    GovernanceKernel,
 )
 
 __all__ = [

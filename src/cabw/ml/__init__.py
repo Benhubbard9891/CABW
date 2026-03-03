@@ -7,8 +7,8 @@ Machine Learning Module for CABW Enterprise
 """
 
 from .behavior_optimization import BehaviorOptimizer, DeliberationWeightOptimizer
-from .rl_agents import RLAgent, RLTrainer, PolicyNetwork, ReplayBuffer
-from .nlp_interface import NLPInterface, AgentDialogue, CommandProcessor
+from .nlp_interface import AgentDialogue, CommandProcessor, NLPInterface
+from .rl_agents import PolicyNetwork, ReplayBuffer, RLAgent, RLTrainer
 
 __all__ = [
     'BehaviorOptimizer',

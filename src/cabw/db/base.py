@@ -1,10 +1,11 @@
 """Database base models and utilities."""
 
+from collections.abc import AsyncGenerator
 from datetime import datetime
-from typing import Any, AsyncGenerator, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, MetaData, String, func
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
     AsyncSession,
@@ -35,9 +36,9 @@ metadata = MetaData(naming_convention=convention)
 
 class Base(DeclarativeBase, AsyncAttrs, MappedAsDataclass):
     """Base class for all database models."""
-    
+
     metadata = metadata
-    
+
     # Common columns for all tables
     id: Mapped[UUID] = mapped_column(
         primary_key=True,
@@ -53,13 +54,13 @@ class Base(DeclarativeBase, AsyncAttrs, MappedAsDataclass):
         onupdate=datetime.utcnow,
         sort_order=-98
     )
-    
+
     @declared_attr.directive
-    def __tablename__(cls) -> str:
+    def __tablename__(self) -> str:
         """Generate table name from class name."""
-        return cls.__name__.lower()
-    
-    def to_dict(self, exclude: Optional[List[str]] = None) -> Dict[str, Any]:
+        return self.__name__.lower()
+
+    def to_dict(self, exclude: list[str] | None = None) -> dict[str, Any]:
         """Convert model to dictionary."""
         exclude = exclude or []
         result = {}
@@ -80,7 +81,7 @@ T = TypeVar("T", bound=Base)
 
 class DatabaseManager:
     """Database connection manager."""
-    
+
     def __init__(self) -> None:
         """Initialize database manager."""
         self.engine = create_async_engine(
@@ -97,7 +98,7 @@ class DatabaseManager:
             autocommit=False,
             autoflush=False,
         )
-    
+
     async def get_session(self) -> AsyncGenerator[AsyncSession, None]:
         """Get database session."""
         async with self.async_session() as session:
@@ -109,17 +110,17 @@ class DatabaseManager:
                 raise
             finally:
                 await session.close()
-    
+
     async def create_tables(self) -> None:
         """Create all database tables."""
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.create_all)
-    
+
     async def drop_tables(self) -> None:
         """Drop all database tables."""
         async with self.engine.begin() as conn:
             await conn.run_sync(metadata.drop_all)
-    
+
     async def close(self) -> None:
         """Close database connections."""
         await self.engine.dispose()

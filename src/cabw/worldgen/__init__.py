@@ -4,9 +4,9 @@ Procedural World Generation Module
 Generate worlds, terrains, zones, and environments procedurally.
 """
 
-from .terrain import TerrainGenerator, TerrainType, Biome
+from .dungeons import Corridor, DungeonGenerator, Room
+from .terrain import Biome, TerrainGenerator, TerrainType
 from .zones import ZoneGenerator, ZoneType
-from .dungeons import DungeonGenerator, Room, Corridor
 
 __all__ = [
     'TerrainGenerator',

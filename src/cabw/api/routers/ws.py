@@ -1,11 +1,10 @@
 """WebSocket router for real-time simulation updates."""
 
 import json
-from typing import Dict, Set
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 import jwt
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
 from jwt import PyJWTError as JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,14 +20,14 @@ router = APIRouter()
 # Active WebSocket connections
 class ConnectionManager:
     """Manage WebSocket connections."""
-    
+
     def __init__(self):
         """Initialize connection manager."""
         # simulation_id -> set of websockets
-        self.simulation_connections: Dict[UUID, Set[WebSocket]] = {}
+        self.simulation_connections: dict[UUID, set[WebSocket]] = {}
         # websocket -> user_id
-        self.user_connections: Dict[WebSocket, UUID] = {}
-    
+        self.user_connections: dict[WebSocket, UUID] = {}
+
     async def connect(
         self,
         websocket: WebSocket,
@@ -37,27 +36,27 @@ class ConnectionManager:
     ) -> None:
         """Accept and store connection."""
         await websocket.accept()
-        
+
         if simulation_id not in self.simulation_connections:
             self.simulation_connections[simulation_id] = set()
-        
+
         self.simulation_connections[simulation_id].add(websocket)
         self.user_connections[websocket] = user_id
-        
+
         logger.info(f"WebSocket connected: {user_id} -> {simulation_id}")
-    
+
     def disconnect(self, websocket: WebSocket, simulation_id: UUID) -> None:
         """Remove connection."""
         if simulation_id in self.simulation_connections:
             self.simulation_connections[simulation_id].discard(websocket)
-            
+
             if not self.simulation_connections[simulation_id]:
                 del self.simulation_connections[simulation_id]
-        
+
         self.user_connections.pop(websocket, None)
-        
+
         logger.info(f"WebSocket disconnected from {simulation_id}")
-    
+
     async def broadcast_to_simulation(
         self,
         simulation_id: UUID,
@@ -66,18 +65,18 @@ class ConnectionManager:
         """Broadcast message to all connections for a simulation."""
         if simulation_id not in self.simulation_connections:
             return
-        
+
         disconnected = []
         for websocket in self.simulation_connections[simulation_id]:
             try:
                 await websocket.send_json(message)
             except Exception:
                 disconnected.append(websocket)
-        
+
         # Clean up disconnected clients
         for websocket in disconnected:
             self.disconnect(websocket, simulation_id)
-    
+
     async def send_to_user(
         self,
         websocket: WebSocket,
@@ -101,16 +100,16 @@ async def authenticate_websocket(
     """Authenticate WebSocket connection."""
     # Get token from query params or headers
     token = websocket.query_params.get("token")
-    
+
     if not token:
         # Try to get from headers
         auth_header = websocket.headers.get("authorization", "")
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
-    
+
     if not token:
         return None
-    
+
     try:
         payload = jwt.decode(
             token,
@@ -120,12 +119,12 @@ async def authenticate_websocket(
         user_id: str = payload.get("sub")
         if user_id is None:
             return None
-        
+
         result = await session.execute(
             select(User).where(User.id == user_id)
         )
         return result.scalar_one_or_none()
-    
+
     except JWTError:
         return None
 
@@ -139,11 +138,11 @@ async def simulation_websocket(
     """WebSocket endpoint for simulation updates."""
     # Authenticate
     user = await authenticate_websocket(websocket, session)
-    
+
     if not user:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    
+
     # Verify simulation exists and belongs to user
     result = await session.execute(
         select(Simulation).where(
@@ -152,14 +151,14 @@ async def simulation_websocket(
         )
     )
     simulation = result.scalar_one_or_none()
-    
+
     if not simulation:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
-    
+
     # Connect
     await manager.connect(websocket, simulation_id, user.id)
-    
+
     # Send initial state
     await websocket.send_json({
         "type": "connected",
@@ -168,19 +167,19 @@ async def simulation_websocket(
         "current_tick": simulation.current_tick,
         "max_ticks": simulation.max_ticks
     })
-    
+
     try:
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            
+
             try:
                 message = json.loads(data)
                 message_type = message.get("type")
-                
+
                 if message_type == "ping":
                     await websocket.send_json({"type": "pong"})
-                
+
                 elif message_type == "subscribe":
                     # Subscribe to specific events
                     event_types = message.get("events", [])
@@ -188,7 +187,7 @@ async def simulation_websocket(
                         "type": "subscribed",
                         "events": event_types
                     })
-                
+
                 elif message_type == "get_state":
                     # Refresh simulation state
                     await session.refresh(simulation)
@@ -198,22 +197,22 @@ async def simulation_websocket(
                         "current_tick": simulation.current_tick,
                         "agent_count": len(simulation.agents)
                     })
-                
+
                 else:
                     await websocket.send_json({
                         "type": "error",
                         "message": f"Unknown message type: {message_type}"
                     })
-            
+
             except json.JSONDecodeError:
                 await websocket.send_json({
                     "type": "error",
                     "message": "Invalid JSON"
                 })
-    
+
     except WebSocketDisconnect:
         manager.disconnect(websocket, simulation_id)
-    
+
     except Exception as e:
         logger.exception("WebSocket error", exc_info=e)
         manager.disconnect(websocket, simulation_id)

@@ -4,9 +4,9 @@ Three.js-based 3D Visualization Renderer
 Generates HTML/JS for real-time 3D visualization of the simulation.
 """
 
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class VizConfig:
     height: int = 800
     background_color: str = "#1a1a2e"
     grid_color: str = "#333344"
-    agent_colors: Dict[str, str] = field(default_factory=lambda: {
+    agent_colors: dict[str, str] = field(default_factory=lambda: {
         'default': '#4CAF50',
         'leader': '#FFD700',
         'injured': '#FF5722',
@@ -25,20 +25,20 @@ class VizConfig:
     show_emotions: bool = True
     show_paths: bool = True
     show_zones: bool = True
-    camera_position: Tuple[float, float, float] = (50, 50, 100)
-    follow_agent: Optional[str] = None
+    camera_position: tuple[float, float, float] = (50, 50, 100)
+    follow_agent: str | None = None
 
 
 class ThreeJSRenderer:
     """
     Generate Three.js HTML/JS for 3D simulation visualization.
     """
-    
-    def __init__(self, config: Optional[VizConfig] = None):
+
+    def __init__(self, config: VizConfig | None = None):
         self.config = config or VizConfig()
         self.frame_count = 0
-    
-    def generate_html(self, simulation_state: Dict[str, Any]) -> str:
+
+    def generate_html(self, simulation_state: dict[str, Any]) -> str:
         """
         Generate complete HTML page with Three.js visualization.
         """
@@ -113,52 +113,52 @@ class ThreeJSRenderer:
         <button onclick="resetCamera()">Reset Camera</button>
         <button onclick="togglePause()">Pause/Play</button>
     </div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script>
         // Simulation state
         const simState = {json.dumps(simulation_state)};
-        
+
         // Three.js setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color('{self.config.background_color}');
         scene.fog = new THREE.Fog('{self.config.background_color}', 50, 200);
-        
+
         const camera = new THREE.PerspectiveCamera(
-            75, 
-            window.innerWidth / window.innerHeight, 
-            0.1, 
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
             1000
         );
         camera.position.set({self.config.camera_position[0]}, {self.config.camera_position[1]}, {self.config.camera_position[2]});
-        
+
         const renderer = new THREE.WebGLRenderer({{ antialias: true }});
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-        
+
         // Controls
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        
+
         // Lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
         scene.add(ambientLight);
-        
+
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(50, 100, 50);
         directionalLight.castShadow = true;
         scene.add(directionalLight);
-        
+
         // Grid
         const gridHelper = new THREE.GridHelper(100, 100, 0x444444, 0x222222);
         scene.add(gridHelper);
-        
+
         // Ground plane
         const groundGeometry = new THREE.PlaneGeometry(200, 200);
-        const groundMaterial = new THREE.MeshLambertMaterial({{ 
+        const groundMaterial = new THREE.MeshLambertMaterial({{
             color: 0x1a1a2e,
             transparent: true,
             opacity: 0.5
@@ -167,19 +167,19 @@ class ThreeJSRenderer:
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -0.1;
         scene.add(ground);
-        
+
         // Agent meshes
         const agents = {{}};
         const agentPaths = {{}};
         const agentLabels = {{}};
-        
+
         // Agent geometry
         const agentGeometry = new THREE.SphereGeometry(1, 16, 16);
-        
+
         // Create agents
         function createAgent(agentId, agentData) {{
             const color = agentData.color || '{self.config.agent_colors['default']}';
-            const material = new THREE.MeshPhongMaterial({{ 
+            const material = new THREE.MeshPhongMaterial({{
                 color: color,
                 emissive: color,
                 emissiveIntensity: 0.2
@@ -187,16 +187,16 @@ class ThreeJSRenderer:
             const mesh = new THREE.Mesh(agentGeometry, material);
             mesh.castShadow = true;
             mesh.userData = {{ agentId: agentId, ...agentData }};
-            
+
             // Position
             const loc = agentData.location || [0, 0];
             mesh.position.set(loc[0], 1, loc[1]);
-            
+
             // Emotion indicator
             if ({str(self.config.show_emotions).lower()}) {{
                 const emotionColor = getEmotionColor(agentData.emotional_state);
                 const indicatorGeometry = new THREE.RingGeometry(1.2, 1.5, 16);
-                const indicatorMaterial = new THREE.MeshBasicMaterial({{ 
+                const indicatorMaterial = new THREE.MeshBasicMaterial({{
                     color: emotionColor,
                     side: THREE.DoubleSide,
                     transparent: true,
@@ -208,13 +208,13 @@ class ThreeJSRenderer:
                 mesh.add(indicator);
                 mesh.userData.emotionIndicator = indicator;
             }}
-            
+
             scene.add(mesh);
             agents[agentId] = mesh;
-            
+
             // Path line
             if ({str(self.config.show_paths).lower()}) {{
-                const pathMaterial = new THREE.LineBasicMaterial({{ 
+                const pathMaterial = new THREE.LineBasicMaterial({{
                     color: color,
                     transparent: true,
                     opacity: 0.3
@@ -224,10 +224,10 @@ class ThreeJSRenderer:
                 scene.add(pathLine);
                 agentPaths[agentId] = {{ line: pathLine, points: [] }};
             }}
-            
+
             return mesh;
         }}
-        
+
         function getEmotionColor(emotionalState) {{
             if (!emotionalState) return 0x888888;
             const dominant = emotionalState.dominant || 'neutral';
@@ -241,75 +241,75 @@ class ThreeJSRenderer:
             }};
             return colors[dominant] || 0x888888;
         }}
-        
+
         // Initialize agents from state
         if (simState.agents) {{
             for (const [agentId, agentData] of Object.entries(simState.agents)) {{
                 createAgent(agentId, agentData);
             }}
         }}
-        
+
         // Update info panel
         function updateInfoPanel() {{
             document.getElementById('tick').textContent = simState.tick || 0;
-            document.getElementById('agent-count').textContent = 
+            document.getElementById('agent-count').textContent =
                 Object.keys(simState.agents || {{}}).length;
-            document.getElementById('weather').textContent = 
+            document.getElementById('weather').textContent =
                 simState.environment?.weather?.type || '-';
         }}
-        
+
         updateInfoPanel();
-        
+
         // Animation loop
         let isPaused = false;
-        
+
         function animate() {{
             requestAnimationFrame(animate);
-            
+
             if (!isPaused) {{
                 controls.update();
-                
+
                 // Animate agents
                 for (const [agentId, mesh] of Object.entries(agents)) {{
                     // Bobbing animation
                     mesh.position.y = 1 + Math.sin(Date.now() * 0.003 + agentId.charCodeAt(0)) * 0.2;
-                    
+
                     // Rotate emotion indicator
                     if (mesh.userData.emotionIndicator) {{
                         mesh.userData.emotionIndicator.rotation.z += 0.01;
                     }}
                 }}
             }}
-            
+
             renderer.render(scene, camera);
         }}
-        
+
         animate();
-        
+
         // Handle window resize
         window.addEventListener('resize', () => {{
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }});
-        
+
         // Click to select agent
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
-        
+
         window.addEventListener('click', (event) => {{
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-            
+
             raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObjects(Object.values(agents));
-            
+
             if (intersects.length > 0) {{
                 const agent = intersects[0].object;
                 showAgentDetails(agent.userData);
             }}
         }});
-        
+
         function showAgentDetails(agentData) {{
             const panel = document.getElementById('selected-agent');
             panel.innerHTML = `
@@ -320,36 +320,36 @@ class ThreeJSRenderer:
                 <p>Action: ${{agentData.current_action || 'None'}}</p>
             `;
         }}
-        
+
         // Control functions
         function togglePaths() {{
             for (const path of Object.values(agentPaths)) {{
                 path.line.visible = !path.line.visible;
             }}
         }}
-        
+
         function toggleEmotions() {{
             for (const agent of Object.values(agents)) {{
                 if (agent.userData.emotionIndicator) {{
-                    agent.userData.emotionIndicator.visible = 
+                    agent.userData.emotionIndicator.visible =
                         !agent.userData.emotionIndicator.visible;
                 }}
             }}
         }}
-        
+
         function resetCamera() {{
             camera.position.set({self.config.camera_position[0]}, {self.config.camera_position[1]}, {self.config.camera_position[2]});
             controls.target.set(0, 0, 0);
             controls.update();
         }}
-        
+
         function togglePause() {{
             isPaused = !isPaused;
         }}
-        
+
         // WebSocket for real-time updates
         const ws = new WebSocket(`ws://${{window.location.host}}/simulation/${{simState.sim_id || 'default'}}/ws`);
-        
+
         ws.onmessage = (event) => {{
             const data = JSON.parse(event.data);
             if (data.type === 'tick_update') {{
@@ -357,7 +357,7 @@ class ThreeJSRenderer:
                 document.getElementById('tick').textContent = data.tick;
             }}
         }};
-        
+
         function updateAgentPositions(newAgents) {{
             for (const [agentId, agentData] of Object.entries(newAgents)) {{
                 if (agents[agentId]) {{
@@ -365,7 +365,7 @@ class ThreeJSRenderer:
                     const loc = agentData.location;
                     mesh.position.x = loc[0];
                     mesh.position.z = loc[1];
-                    
+
                     // Update path
                     if (agentPaths[agentId]) {{
                         agentPaths[agentId].points.push(new THREE.Vector3(loc[0], 0.1, loc[1]));
@@ -382,8 +382,8 @@ class ThreeJSRenderer:
     </script>
 </body>
 </html>"""
-    
-    def update_state(self, simulation_state: Dict[str, Any]) -> str:
+
+    def update_state(self, simulation_state: dict[str, Any]) -> str:
         """
         Generate JavaScript to update visualization state.
         """
@@ -391,7 +391,7 @@ class ThreeJSRenderer:
         <script>
             // Update simulation state
             const newState = {json.dumps(simulation_state)};
-            
+
             // Update agents
             for (const [agentId, agentData] of Object.entries(newState.agents || {{}})) {{
                 if (agents[agentId]) {{
@@ -399,7 +399,7 @@ class ThreeJSRenderer:
                     const loc = agentData.location;
                     mesh.position.x = loc[0];
                     mesh.position.z = loc[1];
-                    
+
                     // Update emotion indicator
                     if (mesh.userData.emotionIndicator) {{
                         mesh.userData.emotionIndicator.material.color.setHex(
@@ -408,13 +408,13 @@ class ThreeJSRenderer:
                     }}
                 }}
             }}
-            
+
             // Update info panel
             document.getElementById('tick').textContent = newState.tick || 0;
         </script>
         """
-    
-    def export_static(self, filepath: str, simulation_state: Dict[str, Any]):
+
+    def export_static(self, filepath: str, simulation_state: dict[str, Any]):
         """Export static HTML file."""
         html = self.generate_html(simulation_state)
         with open(filepath, 'w') as f:
