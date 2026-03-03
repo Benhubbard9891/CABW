@@ -11,7 +11,7 @@
 
 **A production-ready, enterprise-grade multi-agent simulation platform with advanced AI capabilities, security-first governance, and emergent behavior architecture.**
 
-[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [API Reference](#api-reference) • [Contributing](#contributing)
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [API Reference](#api-reference) • [Contributing](#contributing) • [License](#license)
 
 </div>
 
@@ -225,8 +225,8 @@ docker-compose -f docker-compose.scale.yml up --scale worker=10
 ### Architecture
 
 ```
-cabw_enterprise/
-├── src/cabw/
+CABW/                           # Repository root
+├── src/cabw/                   # Main source code
 │   ├── core/                   # Core agent systems
 │   │   ├── emotions.py             # PAD emotional system with contagion
 │   │   ├── actions.py              # Complex action framework
@@ -262,10 +262,12 @@ cabw_enterprise/
 │   │       └── simulation_secure.py # Authenticated endpoints
 │   └── db/
 │       └── models.py               # Database models
+├── cabw_enterprise/            # Enterprise components
 ├── docker/
 │   ├── Dockerfile
 │   └── docker-compose.yml
 ├── tests/                      # Test suite
+├── web/                        # Web frontend
 └── demo_enhanced.py            # Comprehensive demo
 ```
 
