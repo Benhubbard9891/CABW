@@ -11,6 +11,7 @@ from typing import Optional
 
 class ResourceType(Enum):
     """Types of resources in the economy."""
+
     FOOD = auto()
     WATER = auto()
     MEDICINE = auto()
@@ -24,6 +25,7 @@ class ResourceType(Enum):
 @dataclass
 class Resource:
     """Instance of a resource."""
+
     resource_type: ResourceType
     quantity: float
     quality: float = 1.0  # 0.0 to 1.0
@@ -41,7 +43,7 @@ class Resource:
         if self.durability <= 0:
             self.quantity = 0
 
-    def split(self, amount: float) -> Optional['Resource']:
+    def split(self, amount: float) -> Optional["Resource"]:
         """Split off a portion of this resource."""
         if amount > self.quantity:
             return None
@@ -53,10 +55,10 @@ class Resource:
             quality=self.quality,
             durability=self.durability,
             owner_id=self.owner_id,
-            location=self.location
+            location=self.location,
         )
 
-    def merge(self, other: 'Resource') -> bool:
+    def merge(self, other: "Resource") -> bool:
         """Merge another resource into this one."""
         if other.resource_type != self.resource_type:
             return False
@@ -83,7 +85,7 @@ class ResourcePool:
         pool_id: str,
         location: tuple,
         initial_resources: dict[ResourceType, float] | None = None,
-        regeneration_rate: float = 0.01
+        regeneration_rate: float = 0.01,
     ):
         self.pool_id = pool_id
         self.location = location
@@ -94,20 +96,13 @@ class ResourcePool:
         if initial_resources:
             for rtype, quantity in initial_resources.items():
                 self.resources[rtype] = Resource(
-                    resource_type=rtype,
-                    quantity=quantity,
-                    location=location
+                    resource_type=rtype, quantity=quantity, location=location
                 )
 
         # Extraction history
         self.extraction_history: list[dict] = []
 
-    def extract(
-        self,
-        resource_type: ResourceType,
-        amount: float,
-        agent_id: str
-    ) -> Resource | None:
+    def extract(self, resource_type: ResourceType, amount: float, agent_id: str) -> Resource | None:
         """
         Extract resource from pool.
         Returns extracted resource or None if insufficient.
@@ -120,12 +115,14 @@ class ResourcePool:
         if extracted:
             extracted.owner_id = agent_id
 
-            self.extraction_history.append({
-                'agent_id': agent_id,
-                'resource_type': resource_type.name,
-                'amount': amount,
-                'remaining': resource.quantity
-            })
+            self.extraction_history.append(
+                {
+                    "agent_id": agent_id,
+                    "resource_type": resource_type.name,
+                    "amount": amount,
+                    "remaining": resource.quantity,
+                }
+            )
 
         return extracted
 
@@ -133,9 +130,7 @@ class ResourcePool:
         """Deposit resource into pool."""
         if resource.resource_type not in self.resources:
             self.resources[resource.resource_type] = Resource(
-                resource_type=resource.resource_type,
-                quantity=0,
-                location=self.location
+                resource_type=resource.resource_type, quantity=0, location=self.location
             )
 
         return self.resources[resource.resource_type].merge(resource)
@@ -164,11 +159,7 @@ class ResourcePool:
 
     def get_available(self) -> dict[ResourceType, float]:
         """Get available quantities."""
-        return {
-            rtype: res.quantity
-            for rtype, res in self.resources.items()
-            if res.quantity > 0
-        }
+        return {rtype: res.quantity for rtype, res in self.resources.items() if res.quantity > 0}
 
 
 class WorldResources:
@@ -186,32 +177,24 @@ class WorldResources:
             ResourceType.MATERIALS: 15.0,
             ResourceType.TOOLS: 30.0,
             ResourceType.INFORMATION: 100.0,
-            ResourceType.CURRENCY: 1.0
+            ResourceType.CURRENCY: 1.0,
         }
 
     def create_pool(
-        self,
-        pool_id: str,
-        location: tuple,
-        resources: dict[ResourceType, float]
+        self, pool_id: str, location: tuple, resources: dict[ResourceType, float]
     ) -> ResourcePool:
         """Create a new resource pool."""
-        pool = ResourcePool(
-            pool_id=pool_id,
-            location=location,
-            initial_resources=resources
-        )
+        pool = ResourcePool(pool_id=pool_id, location=location, initial_resources=resources)
         self.pools[pool_id] = pool
         return pool
 
     def find_nearest_pool(
-        self,
-        location: tuple,
-        resource_type: ResourceType
+        self, location: tuple, resource_type: ResourceType
     ) -> ResourcePool | None:
         """Find nearest pool with available resource."""
         available = [
-            pool for pool in self.pools.values()
+            pool
+            for pool in self.pools.values()
             if pool.resources.get(resource_type, Resource(resource_type, 0)).quantity > 0
         ]
 
@@ -219,9 +202,10 @@ class WorldResources:
             return None
 
         # Find nearest
-        nearest = min(available, key=lambda p:
-            ((p.location[0] - location[0]) ** 2 +
-             (p.location[1] - location[1]) ** 2) ** 0.5
+        nearest = min(
+            available,
+            key=lambda p: ((p.location[0] - location[0]) ** 2 + (p.location[1] - location[1]) ** 2)
+            ** 0.5,
         )
 
         return nearest

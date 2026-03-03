@@ -24,6 +24,7 @@ logger = get_logger(__name__)
 
 class TeamRole(Enum):
     """Roles within a team."""
+
     LEADER = "leader"
     TACTICIAN = "tactician"
     SUPPORT = "support"
@@ -36,6 +37,7 @@ class TeamRole(Enum):
 
 class GoalStatus(Enum):
     """Status of a team goal."""
+
     PENDING = auto()
     ACTIVE = auto()
     COMPLETED = auto()
@@ -45,6 +47,7 @@ class GoalStatus(Enum):
 
 class GoalPriority(Enum):
     """Priority levels for goals."""
+
     CRITICAL = 4
     HIGH = 3
     MEDIUM = 2
@@ -55,6 +58,7 @@ class GoalPriority(Enum):
 @dataclass
 class GoalObjective:
     """Individual objective within a larger goal."""
+
     id: str
     description: str
     required_role: TeamRole | None = None
@@ -67,27 +71,27 @@ class GoalObjective:
         if self.is_completed:
             return True
 
-        condition_type = self.completion_condition.get('type')
+        condition_type = self.completion_condition.get("type")
 
-        if condition_type == 'location':
-            zone = context.get('zone')
-            target = self.completion_condition.get('zone_id')
+        if condition_type == "location":
+            zone = context.get("zone")
+            target = self.completion_condition.get("zone_id")
             return zone == target
 
-        elif condition_type == 'item':
-            inventory = context.get('inventory', {})
-            item = self.completion_condition.get('item')
-            count = self.completion_condition.get('count', 1)
+        elif condition_type == "item":
+            inventory = context.get("inventory", {})
+            item = self.completion_condition.get("item")
+            count = self.completion_condition.get("count", 1)
             return inventory.get(item, 0) >= count
 
-        elif condition_type == 'defeat':
-            defeated = context.get('defeated', [])
-            target = self.completion_condition.get('target')
+        elif condition_type == "defeat":
+            defeated = context.get("defeated", [])
+            target = self.completion_condition.get("target")
             return target in defeated
 
-        elif condition_type == 'protect':
-            protected = context.get('protected', [])
-            target = self.completion_condition.get('target')
+        elif condition_type == "protect":
+            protected = context.get("protected", [])
+            target = self.completion_condition.get("target")
             return target in protected
 
         return False
@@ -103,6 +107,7 @@ class SharedGoal:
     - Contribution tracking per member
     - Rewards distributed upon completion
     """
+
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
     description: str = ""
@@ -173,11 +178,7 @@ class SharedGoal:
 
     def get_top_contributors(self, n: int = 3) -> list[tuple[str, float]]:
         """Get top contributors to this goal."""
-        sorted_contribs = sorted(
-            self.contributions.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
+        sorted_contribs = sorted(self.contributions.items(), key=lambda x: x[1], reverse=True)
         return sorted_contribs[:n]
 
     def calculate_rewards(self) -> dict[str, Any]:
@@ -188,7 +189,7 @@ class SharedGoal:
         base_rewards = self.rewards.copy()
 
         # Scale by difficulty
-        for key in ['xp', 'gold', 'reputation']:
+        for key in ["xp", "gold", "reputation"]:
             if key in base_rewards:
                 base_rewards[key] = int(base_rewards[key] * self.difficulty)
 
@@ -202,40 +203,41 @@ class SharedGoal:
                     k: int(v * share) if isinstance(v, (int, float)) else v
                     for k, v in base_rewards.items()
                 }
-            base_rewards['individual'] = individual_rewards
+            base_rewards["individual"] = individual_rewards
 
         return base_rewards
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'type': self.goal_type,
-            'priority': self.priority.name,
-            'status': self.status.name,
-            'progress': round(self.progress, 2),
-            'objectives': [
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "type": self.goal_type,
+            "priority": self.priority.name,
+            "status": self.status.name,
+            "progress": round(self.progress, 2),
+            "objectives": [
                 {
-                    'id': obj.id,
-                    'description': obj.description,
-                    'completed': obj.is_completed,
-                    'assigned_to': obj.assigned_to,
+                    "id": obj.id,
+                    "description": obj.description,
+                    "completed": obj.is_completed,
+                    "assigned_to": obj.assigned_to,
                 }
                 for obj in self.objectives
             ],
-            'contributions': self.contributions,
-            'top_contributors': self.get_top_contributors(),
-            'rewards': self.rewards,
-            'created_at': self.created_at.isoformat(),
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            "contributions": self.contributions,
+            "top_contributors": self.get_top_contributors(),
+            "rewards": self.rewards,
+            "created_at": self.created_at.isoformat(),
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
 
 
 @dataclass
 class TeamMember:
     """Member of a team with role and status."""
+
     agent_id: str
     role: TeamRole = TeamRole.SPECIALIST
     joined_at: datetime = field(default_factory=datetime.utcnow)
@@ -282,6 +284,7 @@ class Team:
     - Coordination mechanisms
     - Performance metrics
     """
+
     id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
     description: str = ""
@@ -374,10 +377,7 @@ class Team:
 
             # If not assigned, assign to least busy member
             if not objective.assigned_to:
-                available = [
-                    (aid, m) for aid, m in self.members.items()
-                    if m.is_available
-                ]
+                available = [(aid, m) for aid, m in self.members.items() if m.is_available]
                 if available:
                     # Sort by current objective count
                     objective.assigned_to = available[0][0]
@@ -393,11 +393,13 @@ class Team:
             goal.update_progress()
 
             if goal.status != old_status:
-                changes.append({
-                    'goal_id': goal.id,
-                    'old_status': old_status.name,
-                    'new_status': goal.status.name,
-                })
+                changes.append(
+                    {
+                        "goal_id": goal.id,
+                        "old_status": old_status.name,
+                        "new_status": goal.status.name,
+                    }
+                )
 
             if goal.status == GoalStatus.COMPLETED:
                 completed.append(goal)
@@ -423,15 +425,15 @@ class Team:
         success_rate = self.total_goals_completed / total_goals if total_goals > 0 else 0.5
 
         # Member reliability average
-        avg_reliability = sum(
-            m.reliability_score for m in self.members.values()
-        ) / len(self.members)
+        avg_reliability = sum(m.reliability_score for m in self.members.values()) / len(
+            self.members
+        )
 
         # Communication efficiency
         comm_factor = self.communication_efficiency
 
         # Combined bonus (max 0.5)
-        bonus = (success_rate * 0.2 + avg_reliability * 0.2 + comm_factor * 0.1)
+        bonus = success_rate * 0.2 + avg_reliability * 0.2 + comm_factor * 0.1
 
         return min(0.5, bonus)
 
@@ -461,29 +463,28 @@ class Team:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'member_count': len(self.members),
-            'members': [
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "member_count": len(self.members),
+            "members": [
                 {
-                    'agent_id': m.agent_id,
-                    'role': m.role.value,
-                    'reliability': round(m.reliability_score, 2),
-                    'contribution': round(m.contribution_score, 2),
-                    'is_active': m.is_active,
+                    "agent_id": m.agent_id,
+                    "role": m.role.value,
+                    "reliability": round(m.reliability_score, 2),
+                    "contribution": round(m.contribution_score, 2),
+                    "is_active": m.is_active,
                 }
                 for m in self.members.values()
             ],
-            'leader_id': self.leader_id,
-            'active_goals': [g.to_dict() for g in self.active_goals],
-            'completed_goals_count': len(self.completed_goals),
-            'coordination_bonus': round(self.get_coordination_bonus(), 2),
-            'role_distribution': {
-                role.value: count
-                for role, count in self.get_role_distribution().items()
+            "leader_id": self.leader_id,
+            "active_goals": [g.to_dict() for g in self.active_goals],
+            "completed_goals_count": len(self.completed_goals),
+            "coordination_bonus": round(self.get_coordination_bonus(), 2),
+            "role_distribution": {
+                role.value: count for role, count in self.get_role_distribution().items()
             },
-            'formation_time': self.formation_time.isoformat(),
+            "formation_time": self.formation_time.isoformat(),
         }
 
 
@@ -495,12 +496,7 @@ class TeamManager:
         self.teams: dict[str, Team] = {}
         self.agent_teams: dict[str, set[str]] = {}  # agent_id -> team_ids
 
-    def create_team(
-        self,
-        name: str,
-        description: str = "",
-        creator_id: str | None = None
-    ) -> Team:
+    def create_team(self, name: str, description: str = "", creator_id: str | None = None) -> Team:
         """Create a new team."""
         team = Team(name=name, description=description)
 
@@ -535,10 +531,7 @@ class TeamManager:
 
     def get_active_teams(self) -> list[Team]:
         """Get all active teams."""
-        return [
-            team for team in self.teams.values()
-            if team.is_viable()[0]
-        ]
+        return [team for team in self.teams.values() if team.is_viable()[0]]
 
     def find_team_for_goal(self, goal: SharedGoal) -> Team | None:
         """Find most suitable team for a goal."""
@@ -557,10 +550,7 @@ class TeamManager:
             score = 0.0
 
             # Role match
-            required_roles = {
-                obj.required_role for obj in goal.objectives
-                if obj.required_role
-            }
+            required_roles = {obj.required_role for obj in goal.objectives if obj.required_role}
             team_roles = set(team.get_role_distribution().keys())
             role_match = len(required_roles & team_roles) / max(1, len(required_roles))
             score += role_match * 0.4
@@ -569,9 +559,9 @@ class TeamManager:
             score += team.get_coordination_bonus() * 0.3
 
             # Reliability
-            avg_reliability = sum(
-                m.reliability_score for m in team.members.values()
-            ) / max(1, len(team.members))
+            avg_reliability = sum(m.reliability_score for m in team.members.values()) / max(
+                1, len(team.members)
+            )
             score += avg_reliability * 0.3
 
             candidates.append((team, score))
@@ -610,12 +600,12 @@ class GoalTemplates:
                     id=f"defend_{target}",
                     description=f"Keep {target} safe",
                     required_role=TeamRole.TANK,
-                    completion_condition={'type': 'protect', 'target': target}
+                    completion_condition={"type": "protect", "target": target},
                 ),
             ],
-            rewards={'xp': 100, 'reputation': 10},
+            rewards={"xp": 100, "reputation": 10},
             difficulty=1.2,
-            tags={'defensive', 'protection'}
+            tags={"defensive", "protection"},
         )
 
     @staticmethod
@@ -635,12 +625,12 @@ class GoalTemplates:
                 GoalObjective(
                     id=f"reach_{destination}",
                     description=f"Reach {destination}",
-                    completion_condition={'type': 'location', 'zone_id': destination}
+                    completion_condition={"type": "location", "zone_id": destination},
                 ),
             ],
-            rewards={'xp': 150, 'gold': 50},
+            rewards={"xp": 150, "gold": 50},
             difficulty=1.3,
-            tags={'escort', 'travel'}
+            tags={"escort", "travel"},
         )
 
     @staticmethod
@@ -656,12 +646,12 @@ class GoalTemplates:
                     id=f"defeat_{target}",
                     description=f"Defeat {target}",
                     required_role=TeamRole.DAMAGE,
-                    completion_condition={'type': 'defeat', 'target': target}
+                    completion_condition={"type": "defeat", "target": target},
                 ),
             ],
-            rewards={'xp': 200, 'reputation': 20},
+            rewards={"xp": 200, "reputation": 20},
             difficulty=1.5,
-            tags={'combat', 'offensive'}
+            tags={"combat", "offensive"},
         )
 
     @staticmethod
@@ -676,23 +666,23 @@ class GoalTemplates:
                 GoalObjective(
                     id=f"gather_{item}",
                     description=f"Collect {item}",
-                    completion_condition={'type': 'item', 'item': item, 'count': count}
+                    completion_condition={"type": "item", "item": item, "count": count},
                 ),
             ],
-            rewards={'xp': 50, 'gold': 30},
+            rewards={"xp": 50, "gold": 30},
             difficulty=0.8,
-            tags={'gathering', 'resources'}
+            tags={"gathering", "resources"},
         )
 
 
 __all__ = [
-    'TeamRole',
-    'GoalStatus',
-    'GoalPriority',
-    'GoalObjective',
-    'SharedGoal',
-    'TeamMember',
-    'Team',
-    'TeamManager',
-    'GoalTemplates',
+    "TeamRole",
+    "GoalStatus",
+    "GoalPriority",
+    "GoalObjective",
+    "SharedGoal",
+    "TeamMember",
+    "Team",
+    "TeamManager",
+    "GoalTemplates",
 ]

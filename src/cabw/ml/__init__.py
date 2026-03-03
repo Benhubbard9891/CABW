@@ -11,13 +11,13 @@ from .nlp_interface import AgentDialogue, CommandProcessor, NLPInterface
 from .rl_agents import PolicyNetwork, ReplayBuffer, RLAgent, RLTrainer
 
 __all__ = [
-    'BehaviorOptimizer',
-    'DeliberationWeightOptimizer',
-    'RLAgent',
-    'RLTrainer',
-    'PolicyNetwork',
-    'ReplayBuffer',
-    'NLPInterface',
-    'AgentDialogue',
-    'CommandProcessor'
+    "BehaviorOptimizer",
+    "DeliberationWeightOptimizer",
+    "RLAgent",
+    "RLTrainer",
+    "PolicyNetwork",
+    "ReplayBuffer",
+    "NLPInterface",
+    "AgentDialogue",
+    "CommandProcessor",
 ]

@@ -10,10 +10,4 @@ from .dashboard import DashboardServer, MetricsCollector
 from .exporter import VizExporter
 from .renderer import ThreeJSRenderer, VizConfig
 
-__all__ = [
-    'ThreeJSRenderer',
-    'VizConfig',
-    'DashboardServer',
-    'MetricsCollector',
-    'VizExporter'
-]
+__all__ = ["ThreeJSRenderer", "VizConfig", "DashboardServer", "MetricsCollector", "VizExporter"]

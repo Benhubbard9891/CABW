@@ -40,6 +40,7 @@ deliberation_loggers: dict[str, DeliberationLogger] = {}
 
 # ============== Pydantic Models ==============
 
+
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -65,19 +66,14 @@ class ActionRequest(BaseModel):
 
 # ============== Authentication Routes ==============
 
+
 @router.post("/auth/login")
 async def login(request: LoginRequest):
     """Authenticate and get access token."""
-    principal = auth_manager.authenticate_user(
-        request.username,
-        request.password
-    )
+    principal = auth_manager.authenticate_user(request.username, request.password)
 
     if not principal:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid credentials"
-        )
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = auth_manager.create_access_token(principal)
 
@@ -85,16 +81,17 @@ async def login(request: LoginRequest):
         "access_token": token,
         "token_type": "bearer",
         "role": principal.role.name,
-        "capabilities": [c.name for c in principal.capabilities]
+        "capabilities": [c.name for c in principal.capabilities],
     }
 
 
 # ============== Simulation Management (Protected) ==============
 
+
 @router.post("/create")
 async def create_simulation(
     request: SimulationConfigRequest,
-    principal: APIPrincipal = Depends(require_capability(Capability.CREATE))
+    principal: APIPrincipal = Depends(require_capability(Capability.CREATE)),
 ):
     """Create a new simulation instance (requires CREATE capability)."""
     sim_id = f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -107,7 +104,7 @@ async def create_simulation(
         security_level=request.security_level,
         teamwork_enabled=request.teamwork_enabled,
         weather_enabled=request.weather_enabled,
-        hazards_enabled=request.hazards_enabled
+        hazards_enabled=request.hazards_enabled,
     )
 
     simulation = EnhancedSimulation(sim_config)
@@ -127,19 +124,20 @@ async def create_simulation(
         deterministic = DeterministicSimulation(
             seed=request.seed or hash(sim_id) % (2**32),
             config=sim_config.__dict__,
-            agents=simulation.agents
+            agents=simulation.agents,
         )
         deterministic_sims[sim_id] = deterministic
 
     # Log creation through governor so the hash chain and threat detection run
     from ...governance.security import AccessDecision
     from ...governance.security import Capability as _Cap
+
     constitutional.governor._audit(
-        subject={'id': principal.principal_id, 'type': 'api_principal'},
-        resource={'id': sim_id, 'type': 'simulation'},
+        subject={"id": principal.principal_id, "type": "api_principal"},
+        resource={"id": sim_id, "type": "simulation"},
         capability=_Cap.ACTION_EXECUTE,
         decision=AccessDecision(granted=True, reason=f"Created by {principal.principal_id}"),
-        context={'action': 'create_simulation'},
+        context={"action": "create_simulation"},
     )
 
     return {
@@ -147,20 +145,17 @@ async def create_simulation(
         "status": "created",
         "agents_created": len(simulation.agents),
         "deterministic": request.deterministic,
-        "seed": deterministic.seed.rng_seed if request.deterministic else None
+        "seed": deterministic.seed.rng_seed if request.deterministic else None,
     }
 
 
 @router.post("/{sim_id}/start")
 async def start_simulation(
-    sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
+    sim_id: str, principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Start a simulation (requires EXECUTE capability)."""
     # Check access
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'control', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "control", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -204,13 +199,10 @@ async def start_simulation(
 
 @router.post("/{sim_id}/pause")
 async def pause_simulation(
-    sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
+    sim_id: str, principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Pause a running simulation."""
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'control', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "control", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -225,13 +217,10 @@ async def pause_simulation(
 
 @router.get("/{sim_id}/state")
 async def get_simulation_state(
-    sim_id: str,
-    principal: APIPrincipal = Depends(get_current_principal)
+    sim_id: str, principal: APIPrincipal = Depends(get_current_principal)
 ):
     """Get current simulation state (requires VIEW capability)."""
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'view', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "view", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -247,15 +236,13 @@ async def execute_agent_action(
     sim_id: str,
     agent_id: str,
     request: ActionRequest,
-    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
+    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE)),
 ):
     """
     Execute action through constitutional layer.
     Requires token from ActionBudget.
     """
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'modify', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "modify", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -275,13 +262,14 @@ async def execute_agent_action(
 
     # Create action object
     from ...core.actions import ComplexAction
+
     action = ComplexAction(
         id=f"action_{request.action_type}",
         name=request.action_type,
         preconditions=[],
         costs=None,
         effects=[],
-        constraints=request.params
+        constraints=request.params,
     )
 
     # Execute through constitutional layer
@@ -292,28 +280,20 @@ async def execute_agent_action(
     receipt = constitutional.execute(agent, action, action_func)
 
     if not receipt:
-        raise HTTPException(
-            status_code=403,
-            detail="Action denied by constitutional layer"
-        )
+        raise HTTPException(status_code=403, detail="Action denied by constitutional layer")
 
     return {
         "status": "executed",
         "token_id": receipt.token_id,
         "success": receipt.success,
-        "result": receipt.result
+        "result": receipt.result,
     }
 
 
 @router.post("/{sim_id}/export")
-async def export_simulation(
-    sim_id: str,
-    principal: APIPrincipal = Depends(get_current_principal)
-):
+async def export_simulation(sim_id: str, principal: APIPrincipal = Depends(get_current_principal)):
     """Export simulation for replay."""
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'view', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "view", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -334,27 +314,21 @@ async def export_simulation(
     return {
         "status": "exported",
         "filepath": filepath,
-        "download_url": f"/simulation/{sim_id}/download"
+        "download_url": f"/simulation/{sim_id}/download",
     }
 
 
 @router.post("/{sim_id}/replay")
 async def replay_simulation(
-    sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
+    sim_id: str, principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Replay simulation from event log."""
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'control', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "control", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
     if sim_id not in deterministic_sims:
-        raise HTTPException(
-            status_code=400,
-            detail="Simulation not in deterministic mode"
-        )
+        raise HTTPException(status_code=400, detail="Simulation not in deterministic mode")
 
     det = deterministic_sims[sim_id]
 
@@ -364,23 +338,17 @@ async def replay_simulation(
     # Replay
     success = det.replay(events)
 
-    return {
-        "replayed": success,
-        "events_replayed": len(events),
-        "ticks": det.tick
-    }
+    return {"replayed": success, "events_replayed": len(events), "ticks": det.tick}
 
 
 @router.get("/{sim_id}/audit")
 async def get_audit_trail(
     sim_id: str,
     agent_id: str | None = None,
-    principal: APIPrincipal = Depends(get_current_principal)
+    principal: APIPrincipal = Depends(get_current_principal),
 ):
     """Get constitutional audit trail."""
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'view', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "view", sim_id)
     if not allowed:
         raise HTTPException(status_code=403, detail=reason)
 
@@ -390,13 +358,11 @@ async def get_audit_trail(
     constitutional = constitutional_layers[sim_id]
     trail = constitutional.get_audit_trail(agent_id)
 
-    return {
-        "audit_trail": trail,
-        "count": len(trail)
-    }
+    return {"audit_trail": trail, "count": len(trail)}
 
 
 # ============== WebSocket (Authenticated) ==============
+
 
 @router.websocket("/{sim_id}/ws")
 async def simulation_websocket(websocket: WebSocket, sim_id: str):
@@ -409,9 +375,7 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
         return
 
     # Check access
-    allowed, reason = auth_manager.check_api_access(
-        principal, 'view', sim_id
-    )
+    allowed, reason = auth_manager.check_api_access(principal, "view", sim_id)
     if not allowed:
         await websocket.send_json({"error": reason})
         await websocket.close()
@@ -426,49 +390,44 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
 
     try:
         # Send initial state
-        await websocket.send_json({
-            "type": "authenticated",
-            "principal": principal.principal_id,
-            "role": principal.role.name
-        })
+        await websocket.send_json(
+            {
+                "type": "authenticated",
+                "principal": principal.principal_id,
+                "role": principal.role.name,
+            }
+        )
 
-        await websocket.send_json({
-            "type": "initial_state",
-            "data": simulation.get_state()
-        })
+        await websocket.send_json({"type": "initial_state", "data": simulation.get_state()})
 
         last_tick = simulation.tick_count
 
         while True:
             if simulation.tick_count > last_tick:
-                await websocket.send_json({
-                    "type": "tick_update",
-                    "tick": simulation.tick_count,
-                    "data": simulation.get_state()
-                })
+                await websocket.send_json(
+                    {
+                        "type": "tick_update",
+                        "tick": simulation.tick_count,
+                        "data": simulation.get_state(),
+                    }
+                )
                 last_tick = simulation.tick_count
 
             try:
-                message = await asyncio.wait_for(
-                    websocket.receive_json(),
-                    timeout=0.1
-                )
+                message = await asyncio.wait_for(websocket.receive_json(), timeout=0.1)
 
                 # Handle commands based on role
                 if message.get("command") == "trigger_event":
                     if not principal.has_capability(Capability.ACTION_EXECUTE):
-                        await websocket.send_json({
-                            "error": "Missing EXECUTE capability"
-                        })
+                        await websocket.send_json({"error": "Missing EXECUTE capability"})
                         continue
 
                     event_type = message.get("event_type")
                     params = message.get("params", {})
                     event = simulation.trigger_event(event_type, **params)
-                    await websocket.send_json({
-                        "type": "event_triggered",
-                        "event_id": event.event_id
-                    })
+                    await websocket.send_json(
+                        {"type": "event_triggered", "event_id": event.event_id}
+                    )
 
             except asyncio.TimeoutError:
                 pass

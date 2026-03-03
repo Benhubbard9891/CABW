@@ -11,6 +11,7 @@ from typing import Any
 @dataclass
 class MetricSnapshot:
     """Snapshot of simulation metrics at a point in time."""
+
     timestamp: str
     tick: int
     agent_count: int
@@ -44,11 +45,11 @@ class MetricsCollector:
         state = simulation.get_state()
 
         # Calculate averages
-        agents = state.get('agents', {})
+        agents = state.get("agents", {})
         if agents:
-            avg_health = sum(a.get('health', 0) for a in agents.values()) / len(agents)
-            avg_energy = sum(a.get('energy', 0) for a in agents.values()) / len(agents)
-            alive = sum(1 for a in agents.values() if a.get('alive', False))
+            avg_health = sum(a.get("health", 0) for a in agents.values()) / len(agents)
+            avg_energy = sum(a.get("energy", 0) for a in agents.values()) / len(agents)
+            alive = sum(1 for a in agents.values() if a.get("alive", False))
         else:
             avg_health = 0
             avg_energy = 0
@@ -56,18 +57,18 @@ class MetricsCollector:
 
         snapshot = MetricSnapshot(
             timestamp=datetime.now().isoformat(),
-            tick=state.get('tick', 0),
+            tick=state.get("tick", 0),
             agent_count=len(agents),
             alive_count=alive,
-            team_count=len(state.get('teams', {})),
-            hazard_count=state.get('environment', {}).get('active_hazards', 0),
-            emotional_climate=state.get('emotional_climate', {}).get('dominant', 'neutral'),
+            team_count=len(state.get("teams", {})),
+            hazard_count=state.get("environment", {}).get("active_hazards", 0),
+            emotional_climate=state.get("emotional_climate", {}).get("dominant", "neutral"),
             avg_health=avg_health,
             avg_energy=avg_energy,
-            actions_per_tick=simulation.statistics.get('total_actions', 0) - self.total_actions
+            actions_per_tick=simulation.statistics.get("total_actions", 0) - self.total_actions,
         )
 
-        self.total_actions = simulation.statistics.get('total_actions', 0)
+        self.total_actions = simulation.statistics.get("total_actions", 0)
 
         # Store history
         self.history.append(snapshot)
@@ -75,21 +76,17 @@ class MetricsCollector:
             self.history.pop(0)
 
         self.current_metrics = {
-            'tick': snapshot.tick,
-            'agent_count': snapshot.agent_count,
-            'alive_count': snapshot.alive_count,
-            'avg_health': snapshot.avg_health,
-            'avg_energy': snapshot.avg_energy,
-            'emotional_climate': snapshot.emotional_climate
+            "tick": snapshot.tick,
+            "agent_count": snapshot.agent_count,
+            "alive_count": snapshot.alive_count,
+            "avg_health": snapshot.avg_health,
+            "avg_energy": snapshot.avg_energy,
+            "emotional_climate": snapshot.emotional_climate,
         }
 
         return snapshot
 
-    def get_time_series(
-        self,
-        metric_name: str,
-        window: int = 100
-    ) -> list[tuple]:
+    def get_time_series(self, metric_name: str, window: int = 100) -> list[tuple]:
         """Get time series data for a metric."""
         data = []
         for snapshot in self.history[-window:]:
@@ -106,13 +103,13 @@ class MetricsCollector:
         recent = self.history[-100:]
 
         return {
-            'simulation_duration': (datetime.now() - self.start_time).total_seconds(),
-            'total_ticks': self.history[-1].tick if self.history else 0,
-            'avg_agent_count': sum(s.agent_count for s in recent) / len(recent),
-            'avg_health': sum(s.avg_health for s in recent) / len(recent),
-            'avg_energy': sum(s.avg_energy for s in recent) / len(recent),
-            'peak_agents': max(s.agent_count for s in self.history),
-            'events_processed': self.total_events
+            "simulation_duration": (datetime.now() - self.start_time).total_seconds(),
+            "total_ticks": self.history[-1].tick if self.history else 0,
+            "avg_agent_count": sum(s.agent_count for s in recent) / len(recent),
+            "avg_health": sum(s.avg_health for s in recent) / len(recent),
+            "avg_energy": sum(s.avg_energy for s in recent) / len(recent),
+            "peak_agents": max(s.agent_count for s in self.history),
+            "events_processed": self.total_events,
         }
 
 
@@ -122,10 +119,7 @@ class DashboardServer:
     """
 
     def __init__(
-        self,
-        simulation: Any,
-        metrics_collector: MetricsCollector,
-        update_interval: float = 1.0
+        self, simulation: Any, metrics_collector: MetricsCollector, update_interval: float = 1.0
     ):
         self.simulation = simulation
         self.metrics = metrics_collector
@@ -155,18 +149,18 @@ class DashboardServer:
 
                 # Broadcast to clients
                 message = {
-                    'type': 'metrics_update',
-                    'timestamp': snapshot.timestamp,
-                    'data': {
-                        'tick': snapshot.tick,
-                        'agent_count': snapshot.agent_count,
-                        'alive_count': snapshot.alive_count,
-                        'avg_health': snapshot.avg_health,
-                        'avg_energy': snapshot.avg_energy,
-                        'emotional_climate': snapshot.emotional_climate,
-                        'hazard_count': snapshot.hazard_count,
-                        'team_count': snapshot.team_count
-                    }
+                    "type": "metrics_update",
+                    "timestamp": snapshot.timestamp,
+                    "data": {
+                        "tick": snapshot.tick,
+                        "agent_count": snapshot.agent_count,
+                        "alive_count": snapshot.alive_count,
+                        "avg_health": snapshot.avg_health,
+                        "avg_energy": snapshot.avg_energy,
+                        "emotional_climate": snapshot.emotional_climate,
+                        "hazard_count": snapshot.hazard_count,
+                        "team_count": snapshot.team_count,
+                    },
                 }
 
                 await self._broadcast(message)
@@ -201,13 +195,15 @@ class DashboardServer:
     async def _send_initial_state(self, client):
         """Send initial state to new client."""
         try:
-            await client.send_json({
-                'type': 'initial_state',
-                'data': {
-                    'simulation': self.simulation.get_state(),
-                    'metrics_summary': self.metrics.get_summary()
+            await client.send_json(
+                {
+                    "type": "initial_state",
+                    "data": {
+                        "simulation": self.simulation.get_state(),
+                        "metrics_summary": self.metrics.get_summary(),
+                    },
                 }
-            })
+            )
         except Exception as e:
             print(f"Error sending initial state: {e}")
 

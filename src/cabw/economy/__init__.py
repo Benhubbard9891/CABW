@@ -9,12 +9,12 @@ from .market import Market, PriceHistory, Trade
 from .resources import Resource, ResourcePool, ResourceType
 
 __all__ = [
-    'ResourceType',
-    'Resource',
-    'ResourcePool',
-    'Market',
-    'Trade',
-    'PriceHistory',
-    'EconomicAgent',
-    'TradingStrategy'
+    "ResourceType",
+    "Resource",
+    "ResourcePool",
+    "Market",
+    "Trade",
+    "PriceHistory",
+    "EconomicAgent",
+    "TradingStrategy",
 ]

@@ -15,6 +15,7 @@ from typing import Any
 @dataclass
 class BehaviorMetrics:
     """Metrics for evaluating agent behavior."""
+
     survival_rate: float = 0.0
     goal_completion: float = 0.0
     team_coordination: float = 0.0
@@ -31,7 +32,7 @@ class BehaviorMetrics:
             self.team_coordination,
             self.resource_efficiency,
             self.emotional_stability,
-            self.social_integration
+            self.social_integration,
         ]
         return sum(w * v for w, v in zip(weights, values, strict=False))
 
@@ -46,7 +47,7 @@ class DeliberationWeightOptimizer:
         population_size: int = 50,
         mutation_rate: float = 0.1,
         crossover_rate: float = 0.7,
-        elite_ratio: float = 0.1
+        elite_ratio: float = 0.1,
     ):
         self.population_size = population_size
         self.mutation_rate = mutation_rate
@@ -55,8 +56,13 @@ class DeliberationWeightOptimizer:
 
         # Factor names
         self.factors = [
-            'personality', 'emotion', 'memory',
-            'relationship', 'need', 'environment', 'social'
+            "personality",
+            "emotion",
+            "memory",
+            "relationship",
+            "need",
+            "environment",
+            "social",
         ]
 
         # Population: list of (weights_dict, fitness) tuples
@@ -82,16 +88,13 @@ class DeliberationWeightOptimizer:
     def evaluate_fitness(
         self,
         weights: dict[str, float],
-        simulation_runner: Callable[[dict[str, float]], BehaviorMetrics]
+        simulation_runner: Callable[[dict[str, float]], BehaviorMetrics],
     ) -> float:
         """Evaluate fitness of weight configuration."""
         metrics = simulation_runner(weights)
         return metrics.overall_score()
 
-    def evolve_generation(
-        self,
-        simulation_runner: Callable[[dict[str, float]], BehaviorMetrics]
-    ):
+    def evolve_generation(self, simulation_runner: Callable[[dict[str, float]], BehaviorMetrics]):
         """Evolve one generation."""
         # Evaluate fitness
         evaluated = []
@@ -132,20 +135,14 @@ class DeliberationWeightOptimizer:
         self.generation += 1
 
     def _tournament_select(
-        self,
-        population: list[tuple[dict[str, float], float]],
-        tournament_size: int = 3
+        self, population: list[tuple[dict[str, float], float]], tournament_size: int = 3
     ) -> dict[str, float]:
         """Tournament selection."""
         tournament = random.sample(population, tournament_size)
         tournament.sort(key=lambda x: x[1], reverse=True)
         return tournament[0][0].copy()
 
-    def _crossover(
-        self,
-        parent1: dict[str, float],
-        parent2: dict[str, float]
-    ) -> dict[str, float]:
+    def _crossover(self, parent1: dict[str, float], parent2: dict[str, float]) -> dict[str, float]:
         """Blend crossover."""
         alpha = random.uniform(0, 1)
         child = {}
@@ -171,7 +168,7 @@ class DeliberationWeightOptimizer:
         self,
         simulation_runner: Callable[[dict[str, float]], BehaviorMetrics],
         generations: int = 100,
-        target_fitness: float = 0.9
+        target_fitness: float = 0.9,
     ) -> dict[str, float]:
         """Train until convergence or max generations."""
         for gen in range(generations):
@@ -189,12 +186,12 @@ class DeliberationWeightOptimizer:
     def export_weights(self, filepath: str):
         """Export optimized weights."""
         data = {
-            'weights': self.best_weights,
-            'fitness': self.best_fitness,
-            'generations': self.generation,
-            'fitness_history': self.fitness_history
+            "weights": self.best_weights,
+            "fitness": self.best_fitness,
+            "generations": self.generation,
+            "fitness_history": self.fitness_history,
         }
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             json.dump(data, f, indent=2)
 
 
@@ -214,28 +211,25 @@ class BehaviorOptimizer:
     def optimize_deliberation_weights(
         self,
         simulation_runner: Callable[[dict[str, float]], BehaviorMetrics],
-        generations: int = 100
+        generations: int = 100,
     ) -> dict[str, float]:
         """Optimize deliberation weights."""
         print("Starting deliberation weight optimization...")
-        weights = self.deliberation_optimizer.train(
-            simulation_runner,
-            generations=generations
-        )
+        weights = self.deliberation_optimizer.train(simulation_runner, generations=generations)
 
-        self.optimization_runs.append({
-            'type': 'deliberation_weights',
-            'generations': self.deliberation_optimizer.generation,
-            'best_fitness': self.deliberation_optimizer.best_fitness,
-            'weights': weights
-        })
+        self.optimization_runs.append(
+            {
+                "type": "deliberation_weights",
+                "generations": self.deliberation_optimizer.generation,
+                "best_fitness": self.deliberation_optimizer.best_fitness,
+                "weights": weights,
+            }
+        )
 
         return weights
 
     def recommend_behavior_tree_modifications(
-        self,
-        agent,
-        performance_history: list[BehaviorMetrics]
+        self, agent, performance_history: list[BehaviorMetrics]
     ) -> list[dict[str, Any]]:
         """
         Recommend behavior tree modifications based on performance.
@@ -252,40 +246,46 @@ class BehaviorOptimizer:
 
         # Low survival → add more defensive nodes
         if avg_survival < 0.5:
-            recommendations.append({
-                'type': 'add_node',
-                'location': 'selector.combat',
-                'node': 'health_check',
-                'reason': 'Low survival rate - add health monitoring'
-            })
+            recommendations.append(
+                {
+                    "type": "add_node",
+                    "location": "selector.combat",
+                    "node": "health_check",
+                    "reason": "Low survival rate - add health monitoring",
+                }
+            )
 
         # Low goal completion → adjust priorities
         if avg_goals < 0.3:
-            recommendations.append({
-                'type': 'reorder',
-                'sequence': 'exploration',
-                'new_priority': 'goal_finding',
-                'reason': 'Low goal completion - prioritize goal detection'
-            })
+            recommendations.append(
+                {
+                    "type": "reorder",
+                    "sequence": "exploration",
+                    "new_priority": "goal_finding",
+                    "reason": "Low goal completion - prioritize goal detection",
+                }
+            )
 
         # Emotional instability → add regulation
         avg_stability = sum(m.emotional_stability for m in recent) / len(recent)
         if avg_stability < 0.4:
-            recommendations.append({
-                'type': 'add_decorator',
-                'location': 'root',
-                'decorator': 'cooldown',
-                'params': {'duration': 5},
-                'reason': 'Emotional instability - add action cooldowns'
-            })
+            recommendations.append(
+                {
+                    "type": "add_decorator",
+                    "location": "root",
+                    "decorator": "cooldown",
+                    "params": {"duration": 5},
+                    "reason": "Emotional instability - add action cooldowns",
+                }
+            )
 
         return recommendations
 
     def get_optimization_report(self) -> dict[str, Any]:
         """Get report of all optimization runs."""
         return {
-            'total_runs': len(self.optimization_runs),
-            'runs': self.optimization_runs,
-            'current_best_weights': self.deliberation_optimizer.best_weights,
-            'current_best_fitness': self.deliberation_optimizer.best_fitness
+            "total_runs": len(self.optimization_runs),
+            "runs": self.optimization_runs,
+            "current_best_weights": self.deliberation_optimizer.best_weights,
+            "current_best_fitness": self.deliberation_optimizer.best_fitness,
         }

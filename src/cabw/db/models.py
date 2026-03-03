@@ -27,6 +27,7 @@ from cabw.db.base import Base
 
 class AgentStatus(str, Enum):
     """Agent lifecycle status."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -35,6 +36,7 @@ class AgentStatus(str, Enum):
 
 class SimulationStatus(str, Enum):
     """Simulation run status."""
+
     PENDING = "pending"
     RUNNING = "running"
     PAUSED = "paused"
@@ -45,6 +47,7 @@ class SimulationStatus(str, Enum):
 
 class UserRole(str, Enum):
     """User roles for access control."""
+
     ADMIN = "admin"
     OPERATOR = "operator"
     VIEWER = "viewer"
@@ -66,14 +69,8 @@ class User(Base):
     last_login: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
-    simulations: Mapped[list["Simulation"]] = relationship(
-        back_populates="owner",
-        lazy="selectin"
-    )
-    api_keys: Mapped[list["APIKey"]] = relationship(
-        back_populates="user",
-        lazy="selectin"
-    )
+    simulations: Mapped[list["Simulation"]] = relationship(back_populates="owner", lazy="selectin")
+    api_keys: Mapped[list["APIKey"]] = relationship(back_populates="user", lazy="selectin")
 
 
 class APIKey(Base):
@@ -108,14 +105,9 @@ class World(Base):
 
     # Relationships
     zones: Mapped[list["Zone"]] = relationship(
-        back_populates="world",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="world", lazy="selectin", cascade="all, delete-orphan"
     )
-    simulations: Mapped[list["Simulation"]] = relationship(
-        back_populates="world",
-        lazy="selectin"
-    )
+    simulations: Mapped[list["Simulation"]] = relationship(back_populates="world", lazy="selectin")
 
 
 class Zone(Base):
@@ -140,9 +132,7 @@ class Zone(Base):
     # Relationships
     world: Mapped["World"] = relationship(back_populates="zones")
     objects: Mapped[list["WorldObject"]] = relationship(
-        back_populates="zone",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="zone", lazy="selectin", cascade="all, delete-orphan"
     )
 
 
@@ -174,8 +164,7 @@ class Agent(Base):
 
     # Position
     zone_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("zones.id", ondelete="SET NULL"),
-        nullable=True
+        ForeignKey("zones.id", ondelete="SET NULL"), nullable=True
     )
 
     # Vitals
@@ -206,14 +195,10 @@ class Agent(Base):
     # Relationships
     simulation: Mapped["Simulation"] = relationship(back_populates="agents")
     memories: Mapped[list["Memory"]] = relationship(
-        back_populates="agent",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="agent", lazy="selectin", cascade="all, delete-orphan"
     )
     actions: Mapped[list["AgentAction"]] = relationship(
-        back_populates="agent",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="agent", lazy="selectin", cascade="all, delete-orphan"
     )
 
 
@@ -285,8 +270,7 @@ class Simulation(Base):
     name: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[SimulationStatus] = mapped_column(
-        SQLEnum(SimulationStatus),
-        default=SimulationStatus.PENDING
+        SQLEnum(SimulationStatus), default=SimulationStatus.PENDING
     )
 
     # Configuration
@@ -307,19 +291,13 @@ class Simulation(Base):
     owner: Mapped["User"] = relationship(back_populates="simulations")
     world: Mapped["World"] = relationship(back_populates="simulations")
     agents: Mapped[list["Agent"]] = relationship(
-        back_populates="simulation",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="simulation", lazy="selectin", cascade="all, delete-orphan"
     )
     events: Mapped[list["SimulationEvent"]] = relationship(
-        back_populates="simulation",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="simulation", lazy="selectin", cascade="all, delete-orphan"
     )
     audit_records: Mapped[list["AuditRecord"]] = relationship(
-        back_populates="simulation",
-        lazy="selectin",
-        cascade="all, delete-orphan"
+        back_populates="simulation", lazy="selectin", cascade="all, delete-orphan"
     )
 
 
@@ -379,10 +357,7 @@ class AuditRecord(Base):
     simulation_id: Mapped[UUID] = mapped_column(ForeignKey("simulations.id", ondelete="CASCADE"))
     tick: Mapped[int] = mapped_column(Integer)
     agent_id: Mapped[UUID] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
-    action_id: Mapped[UUID | None] = mapped_column(
-        ForeignKey("agent_actions.id"),
-        nullable=True
-    )
+    action_id: Mapped[UUID | None] = mapped_column(ForeignKey("agent_actions.id"), nullable=True)
 
     # Decision
     decision_type: Mapped[str] = mapped_column(String(50))
@@ -410,15 +385,13 @@ class Constitution(Base):
 
     # Relationships
     simulations: Mapped[list["Simulation"]] = relationship(
-        back_populates="constitution",
-        lazy="selectin"
+        back_populates="constitution", lazy="selectin"
     )
 
 
 # Add constitution relationship to Simulation
 Simulation.constitution_id: Mapped[UUID | None] = mapped_column(
-    ForeignKey("constitutions.id"),
-    nullable=True
+    ForeignKey("constitutions.id"), nullable=True
 )
 Simulation.constitution: Mapped[Optional["Constitution"]] = relationship(
     back_populates="simulations"

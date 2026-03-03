@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 class EmotionType(Enum):
     """Primary emotion types with biological basis."""
+
     JOY = auto()
     SADNESS = auto()
     ANGER = auto()
@@ -33,14 +34,14 @@ class EmotionType(Enum):
     ANTICIPATION = auto()
 
     # Complex emotions (combinations)
-    LOVE = auto()           # Joy + Trust
-    SUBMISSION = auto()     # Trust + Fear
-    AWE = auto()            # Fear + Surprise
-    DISAPPROVAL = auto()    # Surprise + Sadness
-    REMORSE = auto()        # Sadness + Disgust
-    CONTEMPT = auto()       # Disgust + Anger
-    AGGRESSION = auto()     # Anger + Anticipation
-    OPTIMISM = auto()       # Anticipation + Joy
+    LOVE = auto()  # Joy + Trust
+    SUBMISSION = auto()  # Trust + Fear
+    AWE = auto()  # Fear + Surprise
+    DISAPPROVAL = auto()  # Surprise + Sadness
+    REMORSE = auto()  # Sadness + Disgust
+    CONTEMPT = auto()  # Disgust + Anger
+    AGGRESSION = auto()  # Anger + Anticipation
+    OPTIMISM = auto()  # Anticipation + Joy
 
     # Social emotions
     GUILT = auto()
@@ -55,7 +56,8 @@ class EmotionType(Enum):
 
 class MoodState(Enum):
     """Long-term mood states that influence emotional baseline."""
-    EUPHORIC = "euphoric"       # Extreme positive
+
+    EUPHORIC = "euphoric"  # Extreme positive
     HAPPY = "happy"
     CONTENT = "content"
     NEUTRAL = "neutral"
@@ -75,6 +77,7 @@ class EmotionalState:
     - Mood (long-term baseline)
     - Emotional history (for trauma/regret)
     """
+
     # Primary emotions (0-1 intensity)
     joy: float = 0.0
     sadness: float = 0.0
@@ -117,9 +120,22 @@ class EmotionalState:
 
     def _normalize(self) -> None:
         """Ensure all emotion values are in valid range."""
-        for attr in ['joy', 'sadness', 'anger', 'fear', 'disgust',
-                     'surprise', 'trust', 'anticipation', 'love',
-                     'guilt', 'shame', 'pride', 'envy', 'gratitude']:
+        for attr in [
+            "joy",
+            "sadness",
+            "anger",
+            "fear",
+            "disgust",
+            "surprise",
+            "trust",
+            "anticipation",
+            "love",
+            "guilt",
+            "shame",
+            "pride",
+            "envy",
+            "gratitude",
+        ]:
             setattr(self, attr, max(0.0, min(1.0, getattr(self, attr))))
 
     def _update_complex_emotions(self) -> None:
@@ -167,9 +183,7 @@ class EmotionalState:
     def get_arousal(self) -> float:
         """Get emotional arousal level (0 to 1)."""
         # High arousal emotions
-        arousal_emotions = [
-            self.anger, self.fear, self.joy, self.surprise, self.anticipation
-        ]
+        arousal_emotions = [self.anger, self.fear, self.joy, self.surprise, self.anticipation]
         return sum(arousal_emotions) / len(arousal_emotions)
 
     def apply_stimulus(
@@ -177,7 +191,7 @@ class EmotionalState:
         emotion: EmotionType,
         intensity: float,
         source: str | None = None,
-        context: dict | None = None
+        context: dict | None = None,
     ) -> dict:
         """
         Apply an emotional stimulus.
@@ -190,24 +204,24 @@ class EmotionalState:
 
         # Check for trauma triggers
         if source and source in self.trauma_triggers:
-            intensity *= (1 + self.trauma_score)  # Amplify
+            intensity *= 1 + self.trauma_score  # Amplify
             trauma_triggered = True
             logger.debug(f"Trauma trigger activated: {source}")
 
         # Apply suppression if active
         if self.suppression_level > 0:
-            intensity *= (1 - self.suppression_level * 0.5)
+            intensity *= 1 - self.suppression_level * 0.5
 
         # Apply mood influence
         mood_modifiers = {
-            MoodState.EUPHORIC: {'joy': 0.3, 'sadness': -0.2},
-            MoodState.HAPPY: {'joy': 0.2, 'sadness': -0.1},
-            MoodState.CONTENT: {'joy': 0.1, 'anger': -0.1},
+            MoodState.EUPHORIC: {"joy": 0.3, "sadness": -0.2},
+            MoodState.HAPPY: {"joy": 0.2, "sadness": -0.1},
+            MoodState.CONTENT: {"joy": 0.1, "anger": -0.1},
             MoodState.NEUTRAL: {},
-            MoodState.UNEASY: {'fear': 0.1, 'trust': -0.1},
-            MoodState.ANXIOUS: {'fear': 0.2, 'anticipation': 0.2},
-            MoodState.DEPRESSED: {'joy': -0.2, 'sadness': 0.2},
-            MoodState.TRAUMATIZED: {'fear': 0.3, 'trust': -0.3},
+            MoodState.UNEASY: {"fear": 0.1, "trust": -0.1},
+            MoodState.ANXIOUS: {"fear": 0.2, "anticipation": 0.2},
+            MoodState.DEPRESSED: {"joy": -0.2, "sadness": 0.2},
+            MoodState.TRAUMATIZED: {"fear": 0.3, "trust": -0.3},
         }
 
         modifiers = mood_modifiers.get(self.mood, {})
@@ -232,10 +246,10 @@ class EmotionalState:
         self.last_update = datetime.utcnow()
 
         return {
-            'changes': changes,
-            'trauma_triggered': trauma_triggered,
-            'new_valence': self.get_valence(),
-            'new_arousal': self.get_arousal(),
+            "changes": changes,
+            "trauma_triggered": trauma_triggered,
+            "new_valence": self.get_valence(),
+            "new_arousal": self.get_arousal(),
         }
 
     def _decay_opposites(self, emotion: EmotionType, intensity: float) -> None:
@@ -260,8 +274,7 @@ class EmotionalState:
         decay_rate = 0.05 * dt
 
         # Primary emotions decay
-        for attr in ['joy', 'sadness', 'anger', 'fear', 'disgust',
-                     'surprise', 'anticipation']:
+        for attr in ["joy", "sadness", "anger", "fear", "disgust", "surprise", "anticipation"]:
             current = getattr(self, attr)
             setattr(self, attr, max(0.0, current - decay_rate))
 
@@ -297,23 +310,26 @@ class EmotionalState:
             new_mood = MoodState.NEUTRAL
 
         # Apply mood stability (resistance to change)
-        if new_mood != self.mood:
-            if self.mood_stability < 0.5 or (datetime.utcnow() - self.mood_since).seconds > 300:
-                self.mood = new_mood
-                self.mood_since = datetime.utcnow()
-                logger.debug(f"Mood changed to: {new_mood.value}")
+        if new_mood != self.mood and (
+            self.mood_stability < 0.5 or (datetime.utcnow() - self.mood_since).seconds > 300
+        ):
+            self.mood = new_mood
+            self.mood_since = datetime.utcnow()
+            logger.debug(f"Mood changed to: {new_mood.value}")
 
     def add_trauma(self, event: str, severity: float, triggers: list[str]) -> None:
         """Add traumatic event to agent's history."""
         self.trauma_score = min(1.0, self.trauma_score + severity)
         self.trauma_triggers.update(triggers)
 
-        self.emotional_scars.append({
-            'event': event,
-            'severity': severity,
-            'timestamp': datetime.utcnow().isoformat(),
-            'triggers': triggers,
-        })
+        self.emotional_scars.append(
+            {
+                "event": event,
+                "severity": severity,
+                "timestamp": datetime.utcnow().isoformat(),
+                "triggers": triggers,
+            }
+        )
 
         # Trauma affects mood
         if self.trauma_score > 0.5:
@@ -348,29 +364,29 @@ class EmotionalState:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
-            'primary': {
-                'joy': round(self.joy, 3),
-                'sadness': round(self.sadness, 3),
-                'anger': round(self.anger, 3),
-                'fear': round(self.fear, 3),
-                'disgust': round(self.disgust, 3),
-                'surprise': round(self.surprise, 3),
-                'trust': round(self.trust, 3),
-                'anticipation': round(self.anticipation, 3),
+            "primary": {
+                "joy": round(self.joy, 3),
+                "sadness": round(self.sadness, 3),
+                "anger": round(self.anger, 3),
+                "fear": round(self.fear, 3),
+                "disgust": round(self.disgust, 3),
+                "surprise": round(self.surprise, 3),
+                "trust": round(self.trust, 3),
+                "anticipation": round(self.anticipation, 3),
             },
-            'complex': {
-                'love': round(self.love, 3),
-                'guilt': round(self.guilt, 3),
-                'shame': round(self.shame, 3),
-                'pride': round(self.pride, 3),
-                'envy': round(self.envy, 3),
-                'gratitude': round(self.gratitude, 3),
+            "complex": {
+                "love": round(self.love, 3),
+                "guilt": round(self.guilt, 3),
+                "shame": round(self.shame, 3),
+                "pride": round(self.pride, 3),
+                "envy": round(self.envy, 3),
+                "gratitude": round(self.gratitude, 3),
             },
-            'mood': self.mood.value,
-            'valence': round(self.get_valence(), 3),
-            'arousal': round(self.get_arousal(), 3),
-            'trauma_score': round(self.trauma_score, 3),
-            'dominant_emotion': self.get_dominant_emotion()[0].name,
+            "mood": self.mood.value,
+            "valence": round(self.get_valence(), 3),
+            "arousal": round(self.get_arousal(), 3),
+            "trauma_score": round(self.trauma_score, 3),
+            "dominant_emotion": self.get_dominant_emotion()[0].name,
         }
 
 
@@ -392,7 +408,7 @@ class EmotionalContagion:
         relationship_affection: float,
         target_empathy: float,
         distance: float,
-        source_expressiveness: float = 0.5
+        source_expressiveness: float = 0.5,
     ) -> float:
         """
         Calculate how much emotion transfers from source to target.
@@ -419,11 +435,11 @@ class EmotionalContagion:
 
         # Combined formula
         contagion = (
-            source_emotion *
-            relationship_factor *
-            empathy_factor *
-            distance_factor *
-            expression_factor
+            source_emotion
+            * relationship_factor
+            * empathy_factor
+            * distance_factor
+            * expression_factor
         )
 
         return min(1.0, contagion)
@@ -433,13 +449,13 @@ class EmotionalContagion:
         source_state: EmotionalState,
         target_state: EmotionalState,
         emotion: EmotionType,
-        strength: float
+        strength: float,
     ) -> dict:
         """Apply emotional contagion from source to target."""
         emotion_attr = emotion.name.lower()
 
         if not hasattr(source_state, emotion_attr):
-            return {'transferred': 0.0}
+            return {"transferred": 0.0}
 
         source_intensity = getattr(source_state, emotion_attr)
 
@@ -453,9 +469,9 @@ class EmotionalContagion:
             setattr(target_state, emotion_attr, new_value)
 
         return {
-            'emotion': emotion.name,
-            'transferred': round(transferred, 3),
-            'new_intensity': round(getattr(target_state, emotion_attr, 0), 3),
+            "emotion": emotion.name,
+            "transferred": round(transferred, 3),
+            "new_intensity": round(getattr(target_state, emotion_attr, 0), 3),
         }
 
 
@@ -521,14 +537,16 @@ class GroupEmotionalClimate:
         self.tension = (self.collective_arousal + self.emotional_diversity) / 2
 
         # Record history
-        self.climate_history.append({
-            'timestamp': datetime.utcnow().isoformat(),
-            'valence': round(self.collective_valence, 3),
-            'arousal': round(self.collective_arousal, 3),
-            'morale': round(self.morale, 3),
-            'tension': round(self.tension, 3),
-            'member_count': len(self.member_emotions),
-        })
+        self.climate_history.append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "valence": round(self.collective_valence, 3),
+                "arousal": round(self.collective_arousal, 3),
+                "morale": round(self.morale, 3),
+                "tension": round(self.tension, 3),
+                "member_count": len(self.member_emotions),
+            }
+        )
 
     def get_climate_description(self) -> str:
         """Get human-readable description of group climate."""
@@ -548,21 +566,21 @@ class GroupEmotionalClimate:
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
-            'group_id': self.group_id,
-            'member_count': len(self.member_emotions),
-            'collective_valence': round(self.collective_valence, 3),
-            'collective_arousal': round(self.collective_arousal, 3),
-            'emotional_diversity': round(self.emotional_diversity, 3),
-            'morale': round(self.morale, 3),
-            'tension': round(self.tension, 3),
-            'climate': self.get_climate_description(),
+            "group_id": self.group_id,
+            "member_count": len(self.member_emotions),
+            "collective_valence": round(self.collective_valence, 3),
+            "collective_arousal": round(self.collective_arousal, 3),
+            "emotional_diversity": round(self.emotional_diversity, 3),
+            "morale": round(self.morale, 3),
+            "tension": round(self.tension, 3),
+            "climate": self.get_climate_description(),
         }
 
 
 __all__ = [
-    'EmotionType',
-    'MoodState',
-    'EmotionalState',
-    'EmotionalContagion',
-    'GroupEmotionalClimate',
+    "EmotionType",
+    "MoodState",
+    "EmotionalState",
+    "EmotionalContagion",
+    "GroupEmotionalClimate",
 ]

@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 class NodeStatus(Enum):
     """Status of behavior tree node execution."""
+
     SUCCESS = auto()
     FAILURE = auto()
     RUNNING = auto()
@@ -110,6 +111,7 @@ class BTNode(ABC):
 
 
 # Composite Nodes
+
 
 class CompositeNode(BTNode, ABC):
     """Base class for composite nodes (have children)."""
@@ -249,6 +251,7 @@ class ParallelNode(CompositeNode):
 
 
 # Decorator Nodes
+
 
 class DecoratorNode(BTNode, ABC):
     """Base class for decorator nodes (have single child)."""
@@ -397,14 +400,11 @@ class CooldownNode(DecoratorNode):
 
 # Leaf Nodes
 
+
 class ActionNode(BTNode):
     """Leaf node that executes an action."""
 
-    def __init__(
-        self,
-        name: str = "",
-        action: Callable[[Blackboard], NodeStatus] | None = None
-    ):
+    def __init__(self, name: str = "", action: Callable[[Blackboard], NodeStatus] | None = None):
         """Initialize action node."""
         super().__init__(name)
         self.action = action
@@ -427,11 +427,7 @@ class ActionNode(BTNode):
 class ConditionNode(BTNode):
     """Leaf node that checks a condition."""
 
-    def __init__(
-        self,
-        name: str = "",
-        condition: Callable[[Blackboard], bool] | None = None
-    ):
+    def __init__(self, name: str = "", condition: Callable[[Blackboard], bool] | None = None):
         """Initialize condition node."""
         super().__init__(name)
         self.condition = condition
@@ -486,6 +482,7 @@ class WaitNode(BTNode):
 
 # Behavior Tree Builder
 
+
 class BehaviorTree:
     """Complete behavior tree for an agent."""
 
@@ -517,18 +514,19 @@ class BehaviorTree:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert tree structure to dictionary."""
+
         def node_to_dict(node: BTNode) -> dict[str, Any]:
             result = {
-                'type': node.__class__.__name__,
-                'name': node.name,
-                'status': node.status.name,
+                "type": node.__class__.__name__,
+                "name": node.name,
+                "status": node.status.name,
             }
 
             if isinstance(node, CompositeNode):
-                result['children'] = [node_to_dict(child) for child in node.children]
+                result["children"] = [node_to_dict(child) for child in node.children]
 
             if isinstance(node, DecoratorNode) and node.child:
-                result['child'] = node_to_dict(node.child)
+                result["child"] = node_to_dict(node.child)
 
             return result
 
@@ -538,6 +536,7 @@ class BehaviorTree:
 
 
 # Predefined behavior trees
+
 
 class BehaviorTreeLibrary:
     """Library of predefined behavior trees."""
@@ -556,13 +555,17 @@ class BehaviorTreeLibrary:
 
         # Defend if ally needs help
         defend_sequence = SequenceNode("DefendAlly")
-        defend_sequence.add_child(ConditionNode("AllyNeedsHelp", lambda bb: bb.get("ally_danger", False)))
+        defend_sequence.add_child(
+            ConditionNode("AllyNeedsHelp", lambda bb: bb.get("ally_danger", False))
+        )
         defend_sequence.add_child(ActionNode("CoverAlly", lambda bb: NodeStatus.SUCCESS))
         combat_root.add_child(defend_sequence)
 
         # Default: attack
         attack_sequence = SequenceNode("Attack")
-        attack_sequence.add_child(ConditionNode("HasTarget", lambda bb: bb.get("target") is not None))
+        attack_sequence.add_child(
+            ConditionNode("HasTarget", lambda bb: bb.get("target") is not None)
+        )
         attack_sequence.add_child(ActionNode("AttackTarget", lambda bb: NodeStatus.SUCCESS))
         combat_root.add_child(attack_sequence)
 
@@ -575,14 +578,20 @@ class BehaviorTreeLibrary:
 
         # Investigate interesting objects
         investigate = SequenceNode("Investigate")
-        investigate.add_child(ConditionNode("HasInterestingObject", lambda bb: bb.get("interesting_object") is not None))
+        investigate.add_child(
+            ConditionNode(
+                "HasInterestingObject", lambda bb: bb.get("interesting_object") is not None
+            )
+        )
         investigate.add_child(ActionNode("MoveToObject", lambda bb: NodeStatus.SUCCESS))
         investigate.add_child(ActionNode("ExamineObject", lambda bb: NodeStatus.SUCCESS))
         root.add_child(investigate)
 
         # Explore new areas
         explore = SequenceNode("ExploreNewArea")
-        explore.add_child(ConditionNode("HasUnexploredArea", lambda bb: len(bb.get("unexplored", [])) > 0))
+        explore.add_child(
+            ConditionNode("HasUnexploredArea", lambda bb: len(bb.get("unexplored", [])) > 0)
+        )
         explore.add_child(ActionNode("MoveToUnexplored", lambda bb: NodeStatus.SUCCESS))
         root.add_child(explore)
 
@@ -599,20 +608,26 @@ class BehaviorTreeLibrary:
 
         # Help teammates
         help_team = SequenceNode("HelpTeam")
-        help_team.add_child(ConditionNode("TeammateNeedsHelp", lambda bb: bb.get("teammate_request") is not None))
+        help_team.add_child(
+            ConditionNode("TeammateNeedsHelp", lambda bb: bb.get("teammate_request") is not None)
+        )
         help_team.add_child(ActionNode("RespondToRequest", lambda bb: NodeStatus.SUCCESS))
         root.add_child(help_team)
 
         # Coordinate with team
         coordinate = SequenceNode("Coordinate")
         coordinate.add_child(ConditionNode("InTeam", lambda bb: bb.get("team_id") is not None))
-        coordinate.add_child(ConditionNode("CoordinationNeeded", lambda bb: bb.get("coordination_needed", False)))
+        coordinate.add_child(
+            ConditionNode("CoordinationNeeded", lambda bb: bb.get("coordination_needed", False))
+        )
         coordinate.add_child(ActionNode("CoordinateAction", lambda bb: NodeStatus.SUCCESS))
         root.add_child(coordinate)
 
         # Chat with nearby agents
         chat = SequenceNode("Chat")
-        chat.add_child(ConditionNode("HasNearbyAgent", lambda bb: len(bb.get("nearby_agents", [])) > 0))
+        chat.add_child(
+            ConditionNode("HasNearbyAgent", lambda bb: len(bb.get("nearby_agents", [])) > 0)
+        )
         chat.add_child(ActionNode("InitiateChat", lambda bb: NodeStatus.SUCCESS))
         root.add_child(chat)
 
@@ -637,7 +652,9 @@ class BehaviorTreeLibrary:
 
         # Exploration
         explore = SequenceNode("Explore")
-        explore.add_child(ConditionNode("NoImmediateThreat", lambda bb: bb.get("danger_level", 0) < 0.3))
+        explore.add_child(
+            ConditionNode("NoImmediateThreat", lambda bb: bb.get("danger_level", 0) < 0.3)
+        )
         explore.add_child(BehaviorTreeLibrary.create_exploration_tree().root)
         root.add_child(explore)
 
@@ -649,21 +666,21 @@ class BehaviorTreeLibrary:
 
 
 __all__ = [
-    'NodeStatus',
-    'Blackboard',
-    'BTNode',
-    'CompositeNode',
-    'SequenceNode',
-    'SelectorNode',
-    'ParallelNode',
-    'DecoratorNode',
-    'InverterNode',
-    'RepeaterNode',
-    'UntilFailNode',
-    'CooldownNode',
-    'ActionNode',
-    'ConditionNode',
-    'WaitNode',
-    'BehaviorTree',
-    'BehaviorTreeLibrary',
+    "NodeStatus",
+    "Blackboard",
+    "BTNode",
+    "CompositeNode",
+    "SequenceNode",
+    "SelectorNode",
+    "ParallelNode",
+    "DecoratorNode",
+    "InverterNode",
+    "RepeaterNode",
+    "UntilFailNode",
+    "CooldownNode",
+    "ActionNode",
+    "ConditionNode",
+    "WaitNode",
+    "BehaviorTree",
+    "BehaviorTreeLibrary",
 ]

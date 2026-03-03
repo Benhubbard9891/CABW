@@ -9,10 +9,10 @@ from .messenger import Message, RedisMessenger
 from .partitioner import Partition, WorldPartitioner
 
 __all__ = [
-    'DistributedCoordinator',
-    'NodeInfo',
-    'WorldPartitioner',
-    'Partition',
-    'RedisMessenger',
-    'Message'
+    "DistributedCoordinator",
+    "NodeInfo",
+    "WorldPartitioner",
+    "Partition",
+    "RedisMessenger",
+    "Message",
 ]

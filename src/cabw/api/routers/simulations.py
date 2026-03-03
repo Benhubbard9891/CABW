@@ -32,8 +32,8 @@ router = APIRouter()
 @router.post("", response_model=SimulationResponse, status_code=status.HTTP_201_CREATED)
 async def create_simulation(
     simulation_data: SimulationCreate,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Create new simulation."""
     simulation = Simulation(
@@ -59,8 +59,8 @@ async def list_simulations(
     status: SimulationStatus | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> list[Simulation]:
     """List simulations."""
     query = select(Simulation).where(Simulation.owner_id == current_user.id)
@@ -77,23 +77,19 @@ async def list_simulations(
 @router.get("/{simulation_id}", response_model=SimulationResponse)
 async def get_simulation(
     simulation_id: UUID,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Get simulation by ID."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     return simulation
 
@@ -102,23 +98,19 @@ async def get_simulation(
 async def update_simulation(
     simulation_id: UUID,
     update_data: SimulationUpdate,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Update simulation."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     # Update fields
     for field, value in update_data.model_dump(exclude_unset=True).items():
@@ -134,33 +126,30 @@ async def update_simulation(
 @router.post("/{simulation_id}/start", response_model=SimulationResponse)
 async def start_simulation(
     simulation_id: UUID,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Start simulation."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     if simulation.status not in [SimulationStatus.PENDING, SimulationStatus.PAUSED]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot start simulation with status: {simulation.status}"
+            detail=f"Cannot start simulation with status: {simulation.status}",
         )
 
     # Start simulation
     simulation.status = SimulationStatus.RUNNING
     from datetime import datetime
+
     simulation.started_at = datetime.utcnow()
 
     await session.commit()
@@ -176,28 +165,23 @@ async def start_simulation(
 @router.post("/{simulation_id}/pause", response_model=SimulationResponse)
 async def pause_simulation(
     simulation_id: UUID,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Pause simulation."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     if simulation.status != SimulationStatus.RUNNING:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Simulation is not running"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Simulation is not running"
         )
 
     simulation.status = SimulationStatus.PAUSED
@@ -211,32 +195,28 @@ async def pause_simulation(
 @router.post("/{simulation_id}/stop", response_model=SimulationResponse)
 async def stop_simulation(
     simulation_id: UUID,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> Simulation:
     """Stop simulation."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     if simulation.status not in [SimulationStatus.RUNNING, SimulationStatus.PAUSED]:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Simulation is not active"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Simulation is not active"
         )
 
     simulation.status = SimulationStatus.COMPLETED
     from datetime import datetime
+
     simulation.completed_at = datetime.utcnow()
 
     await session.commit()
@@ -253,13 +233,11 @@ async def get_simulation_events(
     event_type: str | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> list[SimulationEvent]:
     """Get simulation events."""
-    query = select(SimulationEvent).where(
-        SimulationEvent.simulation_id == simulation_id
-    )
+    query = select(SimulationEvent).where(SimulationEvent.simulation_id == simulation_id)
 
     if tick is not None:
         query = query.where(SimulationEvent.tick == tick)
@@ -280,26 +258,20 @@ async def get_simulation_actions(
     tick: int | None = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> list[AgentAction]:
     """Get agent actions in simulation."""
     # First verify simulation exists and belongs to user
     sim_result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     if not sim_result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
-    query = select(AgentAction).join(Agent).where(
-        Agent.simulation_id == simulation_id
-    )
+    query = select(AgentAction).join(Agent).where(Agent.simulation_id == simulation_id)
 
     if agent_id:
         query = query.where(AgentAction.agent_id == agent_id)
@@ -316,23 +288,19 @@ async def get_simulation_actions(
 @router.delete("/{simulation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_simulation(
     simulation_id: UUID,
-    current_user = Depends(get_current_active_user),
-    session: AsyncSession = Depends(db_manager.get_session)
+    current_user=Depends(get_current_active_user),
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> None:
     """Delete simulation."""
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == current_user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == current_user.id)
         )
     )
     simulation = result.scalar_one_or_none()
 
     if not simulation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Simulation not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found")
 
     await session.delete(simulation)
     await session.commit()

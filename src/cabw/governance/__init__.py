@@ -14,7 +14,7 @@ from .enforcement import (
     ExecutionReceipt,
     ExecutionStatus,
     ExecutionToken,
-    SecurityViolation,
+    SecurityViolationError,
 )
 from .security import (
     AuditRecord,
@@ -27,17 +27,17 @@ from .security import (
 
 __all__ = [
     # Security
-    'SecurityLevel',
-    'Capability',
-    'SecurityContext',
-    'SecurityPolicy',
-    'AuditRecord',
-    'SecurityGovernor',
+    "SecurityLevel",
+    "Capability",
+    "SecurityContext",
+    "SecurityPolicy",
+    "AuditRecord",
+    "SecurityGovernor",
     # Enforcement
-    'ExecutionStatus',
-    'ExecutionToken',
-    'ExecutionReceipt',
-    'ActionBudget',
-    'SecurityViolation',
-    'ConstitutionalLayer'
+    "ExecutionStatus",
+    "ExecutionToken",
+    "ExecutionReceipt",
+    "ActionBudget",
+    "SecurityViolationError",
+    "ConstitutionalLayer",
 ]

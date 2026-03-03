@@ -10,12 +10,14 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 # Base schemas
 class BaseSchema(BaseModel):
     """Base schema with common configuration."""
+
     model_config = ConfigDict(from_attributes=True)
 
 
 # User schemas
 class UserCreate(BaseSchema):
     """User creation schema."""
+
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=8)
@@ -24,6 +26,7 @@ class UserCreate(BaseSchema):
 
 class UserResponse(BaseSchema):
     """User response schema."""
+
     id: UUID
     email: EmailStr
     username: str
@@ -37,6 +40,7 @@ class UserResponse(BaseSchema):
 
 class UserUpdate(BaseSchema):
     """User update schema."""
+
     full_name: str | None = None
     email: EmailStr | None = None
 
@@ -44,6 +48,7 @@ class UserUpdate(BaseSchema):
 # Token schemas
 class Token(BaseSchema):
     """Token response schema."""
+
     access_token: str
     token_type: str
     expires_in: int
@@ -51,12 +56,14 @@ class Token(BaseSchema):
 
 class TokenData(BaseSchema):
     """Token data schema."""
+
     user_id: str | None = None
 
 
 # World schemas
 class WorldCreate(BaseSchema):
     """World creation schema."""
+
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     width: int = Field(default=10, ge=1, le=1000)
@@ -66,6 +73,7 @@ class WorldCreate(BaseSchema):
 
 class WorldResponse(BaseSchema):
     """World response schema."""
+
     id: UUID
     name: str
     description: str | None
@@ -80,6 +88,7 @@ class WorldResponse(BaseSchema):
 
 class ZoneResponse(BaseSchema):
     """Zone response schema."""
+
     id: UUID
     x: int
     y: int
@@ -93,6 +102,7 @@ class ZoneResponse(BaseSchema):
 
 class WorldObjectResponse(BaseSchema):
     """World object response schema."""
+
     id: UUID
     object_type: str
     name: str | None
@@ -104,6 +114,7 @@ class WorldObjectResponse(BaseSchema):
 # Simulation schemas
 class SimulationCreate(BaseSchema):
     """Simulation creation schema."""
+
     world_id: UUID
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
@@ -114,6 +125,7 @@ class SimulationCreate(BaseSchema):
 
 class SimulationUpdate(BaseSchema):
     """Simulation update schema."""
+
     name: str | None = None
     description: str | None = None
     config: dict[str, Any] | None = None
@@ -121,6 +133,7 @@ class SimulationUpdate(BaseSchema):
 
 class SimulationResponse(BaseSchema):
     """Simulation response schema."""
+
     id: UUID
     name: str
     description: str | None
@@ -140,6 +153,7 @@ class SimulationResponse(BaseSchema):
 
 class SimulationEventResponse(BaseSchema):
     """Simulation event response schema."""
+
     id: UUID
     tick: int
     event_type: str
@@ -152,6 +166,7 @@ class SimulationEventResponse(BaseSchema):
 
 class AgentActionResponse(BaseSchema):
     """Agent action response schema."""
+
     id: UUID
     tick: int
     action_type: str
@@ -167,6 +182,7 @@ class AgentActionResponse(BaseSchema):
 # Agent schemas
 class AgentCreate(BaseSchema):
     """Agent creation schema."""
+
     name: str = Field(..., min_length=1, max_length=255)
     agent_type: str = Field(default="npc")
     zone_id: UUID | None = None
@@ -186,6 +202,7 @@ class AgentCreate(BaseSchema):
 
 class AgentResponse(BaseSchema):
     """Agent response schema."""
+
     id: UUID
     name: str
     agent_type: str
@@ -222,6 +239,7 @@ class AgentResponse(BaseSchema):
 
 class AgentUpdate(BaseSchema):
     """Agent update schema."""
+
     name: str | None = None
     status: str | None = None
     zone_id: UUID | None = None
@@ -231,6 +249,7 @@ class AgentUpdate(BaseSchema):
 
 class MemoryResponse(BaseSchema):
     """Memory response schema."""
+
     id: UUID
     content: str
     memory_type: str
@@ -244,6 +263,7 @@ class MemoryResponse(BaseSchema):
 
 class RelationshipResponse(BaseSchema):
     """Relationship response schema."""
+
     id: UUID
     agent_a_id: UUID
     agent_b_id: UUID
@@ -265,6 +285,7 @@ class RelationshipResponse(BaseSchema):
 # Constitution schemas
 class ConstitutionCreate(BaseSchema):
     """Constitution creation schema."""
+
     name: str = Field(..., min_length=1, max_length=255)
     description: str | None = None
     version: str = Field(default="1.0.0")
@@ -273,6 +294,7 @@ class ConstitutionCreate(BaseSchema):
 
 class ConstitutionResponse(BaseSchema):
     """Constitution response schema."""
+
     id: UUID
     name: str
     description: str | None
@@ -286,6 +308,7 @@ class ConstitutionResponse(BaseSchema):
 # Pagination
 class PaginatedResponse(BaseSchema):
     """Paginated response schema."""
+
     items: list[Any]
     total: int
     skip: int
@@ -296,6 +319,7 @@ class PaginatedResponse(BaseSchema):
 # Error schemas
 class ErrorResponse(BaseSchema):
     """Error response schema."""
+
     error: str
     message: str
     details: dict[str, Any] | None = None

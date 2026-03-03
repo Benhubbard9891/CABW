@@ -30,11 +30,11 @@ simulation_tasks: dict[str, asyncio.Task] = {}
 
 # ============== Pydantic Models ==============
 
+
 class AgentCreateRequest(BaseModel):
     name: str = Field(..., description="Agent name")
     ocean_traits: dict[str, float] | None = Field(
-        None,
-        description="OCEAN personality traits (0.0-1.0)"
+        None, description="OCEAN personality traits (0.0-1.0)"
     )
     location: tuple | None = Field(None, description="Initial location (x, y)")
     behavior_tree: str = Field("agent_ai", description="Behavior tree type")
@@ -48,7 +48,9 @@ class TeamCreateRequest(BaseModel):
 
 class GoalAssignRequest(BaseModel):
     team_id: str = Field(..., description="Target team ID")
-    goal_type: str = Field(..., description="Goal type (exploration, resource_gathering, defense, etc.)")
+    goal_type: str = Field(
+        ..., description="Goal type (exploration, resource_gathering, defense, etc.)"
+    )
     params: dict[str, Any] = Field(default_factory=dict, description="Goal parameters")
 
 
@@ -67,13 +69,16 @@ class SimulationConfigRequest(BaseModel):
     num_agents: int = Field(10, ge=1, le=100, description="Number of agents")
     tick_rate: float = Field(1.0, ge=0.1, le=10.0, description="Ticks per second")
     max_ticks: int = Field(1000, ge=10, description="Maximum simulation ticks")
-    security_level: str = Field("standard", description="Security level (low, standard, high, maximum)")
+    security_level: str = Field(
+        "standard", description="Security level (low, standard, high, maximum)"
+    )
     teamwork_enabled: bool = Field(True, description="Enable teamwork system")
     weather_enabled: bool = Field(True, description="Enable weather system")
     hazards_enabled: bool = Field(True, description="Enable dynamic hazards")
 
 
 # ============== HTTP Routes ==============
+
 
 @router.post("/create", response_model=dict[str, str])
 async def create_simulation(config: SimulationConfigRequest):
@@ -88,7 +93,7 @@ async def create_simulation(config: SimulationConfigRequest):
         security_level=config.security_level,
         teamwork_enabled=config.teamwork_enabled,
         weather_enabled=config.weather_enabled,
-        hazards_enabled=config.hazards_enabled
+        hazards_enabled=config.hazards_enabled,
     )
 
     simulation = EnhancedSimulation(sim_config)
@@ -96,11 +101,7 @@ async def create_simulation(config: SimulationConfigRequest):
 
     active_simulations[sim_id] = simulation
 
-    return {
-        "simulation_id": sim_id,
-        "status": "created",
-        "agents_created": len(simulation.agents)
-    }
+    return {"simulation_id": sim_id, "status": "created", "agents_created": len(simulation.agents)}
 
 
 @router.post("/{sim_id}/start")
@@ -188,7 +189,7 @@ async def list_agents(sim_id: str):
                 "health": agent.stats.health,
                 "alive": agent.stats.is_alive(),
                 "emotional_state": agent.emotional_state.get_dominant_emotion(),
-                "team": agent.current_team.team_id if agent.current_team else None
+                "team": agent.current_team.team_id if agent.current_team else None,
             }
             for agent_id, agent in simulation.agents.items()
         ]
@@ -207,14 +208,14 @@ async def add_agent(sim_id: str, request: AgentCreateRequest):
         name=request.name,
         ocean_traits=request.ocean_traits,
         location=request.location,
-        behavior_tree=request.behavior_tree
+        behavior_tree=request.behavior_tree,
     )
 
     return {
         "agent_id": agent.agent_id,
         "name": agent.name,
         "location": agent.location,
-        "status": "added"
+        "status": "added",
     }
 
 
@@ -249,7 +250,7 @@ async def list_teams(sim_id: str):
                 "member_count": len(team.members),
                 "active_goals": len(team.active_goals),
                 "cohesion": team.get_team_cohesion(),
-                "members": list(team.members.keys())
+                "members": list(team.members.keys()),
             }
             for team_id, team in simulation.team_manager.teams.items()
         ]
@@ -271,19 +272,16 @@ async def create_team(sim_id: str, request: TeamCreateRequest):
         agent = simulation.agents.get(agent_id)
         if agent:
             from ...core.teamwork import TeamMember, TeamRole
+
             member = TeamMember(
                 agent_id=agent_id,
                 role=TeamRole.LEADER if not team.members else TeamRole.MEMBER,
-                coordination_skill=agent.team_coordination_skill
+                coordination_skill=agent.team_coordination_skill,
             )
             team.add_member(member)
             agent.current_team = team
 
-    return {
-        "team_id": team.team_id,
-        "name": team.name,
-        "members_added": len(request.member_ids)
-    }
+    return {"team_id": team.team_id, "name": team.name, "members_added": len(request.member_ids)}
 
 
 @router.post("/{sim_id}/teams/goal")
@@ -295,9 +293,7 @@ async def assign_team_goal(sim_id: str, request: GoalAssignRequest):
     simulation = active_simulations[sim_id]
 
     goal = simulation.create_team_goal(
-        team_id=request.team_id,
-        goal_type=request.goal_type,
-        **request.params
+        team_id=request.team_id, goal_type=request.goal_type, **request.params
     )
 
     if not goal:
@@ -307,7 +303,7 @@ async def assign_team_goal(sim_id: str, request: GoalAssignRequest):
         "goal_id": goal.goal_id,
         "team_id": request.team_id,
         "goal_type": request.goal_type,
-        "status": "assigned"
+        "status": "assigned",
     }
 
 
@@ -321,8 +317,10 @@ async def control_weather(sim_id: str, request: WeatherControlRequest):
 
     try:
         weather_type = WeatherType[request.weather_type.upper()]
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid weather type: {request.weather_type}")
+    except KeyError as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid weather type: {request.weather_type}"
+        ) from e
 
     # Set weather
     simulation.environment.weather = simulation.environment.weather.__class__(
@@ -330,14 +328,10 @@ async def control_weather(sim_id: str, request: WeatherControlRequest):
         intensity=request.intensity,
         temperature=simulation.environment._get_seasonal_temperature(weather_type),
         humidity=0.5,
-        wind_speed=20.0 if weather_type in [WeatherType.STORM, WeatherType.BLIZZARD] else 5.0
+        wind_speed=20.0 if weather_type in [WeatherType.STORM, WeatherType.BLIZZARD] else 5.0,
     )
 
-    return {
-        "weather_type": weather_type.name,
-        "intensity": request.intensity,
-        "status": "set"
-    }
+    return {"weather_type": weather_type.name, "intensity": request.intensity, "status": "set"}
 
 
 @router.post("/{sim_id}/events")
@@ -350,13 +344,9 @@ async def trigger_event(sim_id: str, request: EventTriggerRequest):
 
     try:
         event = simulation.trigger_event(request.event_type, **request.params)
-        return {
-            "event_id": event.event_id,
-            "event_type": request.event_type,
-            "status": "triggered"
-        }
+        return {"event_id": event.event_id, "event_type": request.event_type, "status": "triggered"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{sim_id}/environment")
@@ -386,7 +376,7 @@ async def list_hazards(sim_id: str):
                 "location": h.location,
                 "radius": h.radius,
                 "active": h.active,
-                "contained": h.contained
+                "contained": h.contained,
             }
             for h in simulation.environment.hazards.values()
         ]
@@ -407,7 +397,7 @@ async def get_statistics(sim_id: str):
         "agent_count": len(simulation.agents),
         "alive_count": sum(1 for a in simulation.agents.values() if a.stats.is_alive()),
         "team_count": len(simulation.team_manager.teams),
-        "hazard_count": len(simulation.environment.hazards)
+        "hazard_count": len(simulation.environment.hazards),
     }
 
 
@@ -435,7 +425,7 @@ async def export_results(sim_id: str):
     return {
         "status": "exported",
         "filepath": filepath,
-        "download_url": f"/simulation/{sim_id}/download"
+        "download_url": f"/simulation/{sim_id}/download",
     }
 
 
@@ -448,13 +438,12 @@ async def download_results(sim_id: str):
         raise HTTPException(status_code=404, detail="Export file not found")
 
     return FileResponse(
-        filepath,
-        media_type="application/json",
-        filename=f"simulation_{sim_id}_results.json"
+        filepath, media_type="application/json", filename=f"simulation_{sim_id}_results.json"
     )
 
 
 # ============== WebSocket Routes ==============
+
 
 @router.websocket("/{sim_id}/ws")
 async def simulation_websocket(websocket: WebSocket, sim_id: str):
@@ -470,10 +459,7 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
 
     try:
         # Send initial state
-        await websocket.send_json({
-            "type": "initial_state",
-            "data": simulation.get_state()
-        })
+        await websocket.send_json({"type": "initial_state", "data": simulation.get_state()})
 
         # Subscribe to updates
         last_tick = simulation.tick_count
@@ -481,50 +467,50 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
         while True:
             # Check for updates
             if simulation.tick_count > last_tick:
-                await websocket.send_json({
-                    "type": "tick_update",
-                    "tick": simulation.tick_count,
-                    "data": {
-                        "agents": {
-                            aid: {
-                                "location": a.location,
-                                "health": a.stats.health,
-                                "emotional_state": a.emotional_state.get_dominant_emotion(),
-                                "current_action": a.current_action
-                            }
-                            for aid, a in simulation.agents.items()
+                await websocket.send_json(
+                    {
+                        "type": "tick_update",
+                        "tick": simulation.tick_count,
+                        "data": {
+                            "agents": {
+                                aid: {
+                                    "location": a.location,
+                                    "health": a.stats.health,
+                                    "emotional_state": a.emotional_state.get_dominant_emotion(),
+                                    "current_action": a.current_action,
+                                }
+                                for aid, a in simulation.agents.items()
+                            },
+                            "environment": simulation.environment.get_environmental_summary(),
                         },
-                        "environment": simulation.environment.get_environmental_summary()
                     }
-                })
+                )
                 last_tick = simulation.tick_count
 
             # Check for messages from client
             try:
-                message = await asyncio.wait_for(
-                    websocket.receive_json(),
-                    timeout=0.1
-                )
+                message = await asyncio.wait_for(websocket.receive_json(), timeout=0.1)
 
                 # Handle commands
                 if message.get("command") == "get_agent_details":
                     agent_id = message.get("agent_id")
                     agent = simulation.agents.get(agent_id)
                     if agent:
-                        await websocket.send_json({
-                            "type": "agent_details",
-                            "agent_id": agent_id,
-                            "data": agent.get_state_summary()
-                        })
+                        await websocket.send_json(
+                            {
+                                "type": "agent_details",
+                                "agent_id": agent_id,
+                                "data": agent.get_state_summary(),
+                            }
+                        )
 
                 elif message.get("command") == "trigger_event":
                     event_type = message.get("event_type")
                     params = message.get("params", {})
                     event = simulation.trigger_event(event_type, **params)
-                    await websocket.send_json({
-                        "type": "event_triggered",
-                        "event_id": event.event_id
-                    })
+                    await websocket.send_json(
+                        {"type": "event_triggered", "event_id": event.event_id}
+                    )
 
             except asyncio.TimeoutError:
                 pass
@@ -558,43 +544,40 @@ async def agent_websocket(websocket: WebSocket, sim_id: str, agent_id: str):
 
     try:
         # Send initial state
-        await websocket.send_json({
-            "type": "initial_state",
-            "data": agent.get_state_summary()
-        })
+        await websocket.send_json({"type": "initial_state", "data": agent.get_state_summary()})
 
         last_action_count = len(simulation.agent_action_log)
 
         while True:
             # Check for new actions by this agent
             new_actions = [
-                entry for entry in simulation.agent_action_log[last_action_count:]
+                entry
+                for entry in simulation.agent_action_log[last_action_count:]
                 if entry.get("agent_id") == agent_id
             ]
 
             if new_actions:
-                await websocket.send_json({
-                    "type": "actions",
-                    "actions": new_actions
-                })
+                await websocket.send_json({"type": "actions", "actions": new_actions})
                 last_action_count = len(simulation.agent_action_log)
 
             # Periodic state update
             if simulation.tick_count % 5 == 0:  # Every 5 ticks
-                await websocket.send_json({
-                    "type": "state_update",
-                    "data": {
-                        "location": agent.location,
-                        "health": agent.stats.health,
-                        "energy": agent.stats.energy,
-                        "emotional_state": agent.emotional_state.get_dominant_emotion(),
-                        "current_action": agent.current_action,
-                        "needs": {
-                            "priority": agent.needs.get_priority_need()[0],
-                            "urgency": agent.needs.get_priority_need()[1]
-                        }
+                await websocket.send_json(
+                    {
+                        "type": "state_update",
+                        "data": {
+                            "location": agent.location,
+                            "health": agent.stats.health,
+                            "energy": agent.stats.energy,
+                            "emotional_state": agent.emotional_state.get_dominant_emotion(),
+                            "current_action": agent.current_action,
+                            "needs": {
+                                "priority": agent.needs.get_priority_need()[0],
+                                "urgency": agent.needs.get_priority_need()[1],
+                            },
+                        },
                     }
-                })
+                )
 
             await asyncio.sleep(0.2)
 

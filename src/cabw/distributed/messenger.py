@@ -12,20 +12,22 @@ from typing import Any
 
 class MessageType(Enum):
     """Types of distributed messages."""
-    AGENT_MIGRATE = auto()      # Agent moving between partitions
-    AGENT_UPDATE = auto()       # Agent state update
-    WORLD_UPDATE = auto()       # World state update
-    SYNC_REQUEST = auto()       # Request synchronization
-    SYNC_RESPONSE = auto()      # Synchronization response
-    HAZARD_ALERT = auto()       # Hazard notification
-    TEAM_FORMATION = auto()     # Team formation request
-    HEARTBEAT = auto()          # Node heartbeat
-    SHUTDOWN = auto()           # Shutdown notification
+
+    AGENT_MIGRATE = auto()  # Agent moving between partitions
+    AGENT_UPDATE = auto()  # Agent state update
+    WORLD_UPDATE = auto()  # World state update
+    SYNC_REQUEST = auto()  # Request synchronization
+    SYNC_RESPONSE = auto()  # Synchronization response
+    HAZARD_ALERT = auto()  # Hazard notification
+    TEAM_FORMATION = auto()  # Team formation request
+    HEARTBEAT = auto()  # Node heartbeat
+    SHUTDOWN = auto()  # Shutdown notification
 
 
 @dataclass
 class Message:
     """Message for distributed communication."""
+
     msg_id: str
     msg_type: MessageType
     source_node: str
@@ -36,28 +38,30 @@ class Message:
 
     def to_json(self) -> str:
         """Serialize to JSON."""
-        return json.dumps({
-            'msg_id': self.msg_id,
-            'msg_type': self.msg_type.name,
-            'source_node': self.source_node,
-            'target_node': self.target_node,
-            'payload': self.payload,
-            'timestamp': self.timestamp,
-            'priority': self.priority
-        })
+        return json.dumps(
+            {
+                "msg_id": self.msg_id,
+                "msg_type": self.msg_type.name,
+                "source_node": self.source_node,
+                "target_node": self.target_node,
+                "payload": self.payload,
+                "timestamp": self.timestamp,
+                "priority": self.priority,
+            }
+        )
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'Message':
+    def from_json(cls, json_str: str) -> "Message":
         """Deserialize from JSON."""
         data = json.loads(json_str)
         return cls(
-            msg_id=data['msg_id'],
-            msg_type=MessageType[data['msg_type']],
-            source_node=data['source_node'],
-            target_node=data['target_node'],
-            payload=data['payload'],
-            timestamp=data['timestamp'],
-            priority=data.get('priority', 0)
+            msg_id=data["msg_id"],
+            msg_type=MessageType[data["msg_type"]],
+            source_node=data["source_node"],
+            target_node=data["target_node"],
+            payload=data["payload"],
+            timestamp=data["timestamp"],
+            priority=data.get("priority", 0),
         )
 
 
@@ -66,11 +70,7 @@ class RedisMessenger:
     Redis-based message broker for distributed simulation.
     """
 
-    def __init__(
-        self,
-        redis_url: str = 'redis://localhost:6379',
-        node_id: str | None = None
-    ):
+    def __init__(self, redis_url: str = "redis://localhost:6379", node_id: str | None = None):
         self.redis_url = redis_url
         self.node_id = node_id or f"node_{datetime.now().timestamp()}"
         self.redis = None
@@ -80,6 +80,7 @@ class RedisMessenger:
         # Try to import redis
         try:
             import redis as redis_lib
+
             self.redis_lib = redis_lib
         except ImportError:
             self.redis_lib = None
@@ -111,10 +112,7 @@ class RedisMessenger:
 
             if message.target_node:
                 # Also publish to node-specific channel
-                self.redis.publish(
-                    f"cabw:node:{message.target_node}",
-                    message.to_json()
-                )
+                self.redis.publish(f"cabw:node:{message.target_node}", message.to_json())
 
             self.message_count += 1
             return True
@@ -122,11 +120,7 @@ class RedisMessenger:
             print(f"Publish error: {e}")
             return False
 
-    def subscribe(
-        self,
-        msg_type: MessageType,
-        callback: Callable[[Message], None]
-    ):
+    def subscribe(self, msg_type: MessageType, callback: Callable[[Message], None]):
         """Subscribe to message type."""
         if msg_type not in self.subscribers:
             self.subscribers[msg_type] = []
@@ -152,9 +146,9 @@ class RedisMessenger:
             print(f"Node {self.node_id} listening for messages...")
 
             for message in pubsub.listen():
-                if message['type'] == 'message':
+                if message["type"] == "message":
                     try:
-                        msg = Message.from_json(message['data'])
+                        msg = Message.from_json(message["data"])
                         self._notify_subscribers(msg)
                     except Exception as e:
                         print(f"Message parse error: {e}")
@@ -172,20 +166,15 @@ class RedisMessenger:
             except Exception as e:
                 print(f"Subscriber error: {e}")
 
-    def send_agent_migrate(
-        self,
-        agent_data: dict[str, Any],
-        from_node: str,
-        to_node: str
-    ) -> bool:
+    def send_agent_migrate(self, agent_data: dict[str, Any], from_node: str, to_node: str) -> bool:
         """Send agent migration message."""
         msg = Message(
             msg_id=f"migrate_{self.message_count}",
             msg_type=MessageType.AGENT_MIGRATE,
             source_node=from_node,
             target_node=to_node,
-            payload={'agent': agent_data},
-            priority=10
+            payload={"agent": agent_data},
+            priority=10,
         )
         return self.publish(msg)
 
@@ -196,8 +185,8 @@ class RedisMessenger:
             msg_type=MessageType.SYNC_REQUEST,
             source_node=self.node_id,
             target_node=None,  # Broadcast
-            payload={'tick': tick},
-            priority=5
+            payload={"tick": tick},
+            priority=5,
         )
         return self.publish(msg)
 
@@ -208,18 +197,17 @@ class RedisMessenger:
             msg_type=MessageType.HEARTBEAT,
             source_node=self.node_id,
             target_node=None,
-            payload={'timestamp': datetime.now().isoformat()}
+            payload={"timestamp": datetime.now().isoformat()},
         )
         return self.publish(msg)
 
     def get_stats(self) -> dict[str, Any]:
         """Get messenger statistics."""
         return {
-            'node_id': self.node_id,
-            'connected': self.redis is not None,
-            'messages_sent': self.message_count,
-            'subscribers': {
-                msg_type.name: len(callbacks)
-                for msg_type, callbacks in self.subscribers.items()
-            }
+            "node_id": self.node_id,
+            "connected": self.redis is not None,
+            "messages_sent": self.message_count,
+            "subscribers": {
+                msg_type.name: len(callbacks) for msg_type, callbacks in self.subscribers.items()
+            },
         }

@@ -13,7 +13,7 @@ class DatabaseSettings(BaseSettings):
 
     url: PostgresDsn | None = Field(
         default="postgresql+asyncpg://cabw:cabw@localhost:5432/cabw",
-        description="Database connection URL"
+        description="Database connection URL",
     )
     pool_size: int = Field(default=10, ge=1, le=100)
     max_overflow: int = Field(default=20, ge=0, le=100)
@@ -34,10 +34,7 @@ class RedisSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
-    url: RedisDsn = Field(
-        default="redis://localhost:6379/0",
-        description="Redis connection URL"
-    )
+    url: RedisDsn = Field(default="redis://localhost:6379/0", description="Redis connection URL")
     password: str | None = Field(default=None)
     socket_timeout: int = Field(default=5, ge=1, le=60)
     socket_connect_timeout: int = Field(default=5, ge=1, le=60)
@@ -68,10 +65,7 @@ class AuthSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="AUTH_")
 
-    secret_key: str = Field(
-        default="your-secret-key-change-in-production",
-        min_length=32
-    )
+    secret_key: str = Field(default="your-secret-key-change-in-production", min_length=32)
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=30, ge=1, le=1440)
     refresh_token_expire_days: int = Field(default=7, ge=1, le=365)
@@ -134,17 +128,15 @@ class MonitoringSettings(BaseSettings):
 class Settings(BaseSettings):
     """Main application settings."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Application
     app_name: str = Field(default="CABW Enterprise")
     app_version: str = Field(default="3.0.0")
     debug: bool = Field(default=False)
-    environment: str = Field(default="development", pattern=r"^(development|staging|production|test)$")
+    environment: str = Field(
+        default="development", pattern=r"^(development|staging|production|test)$"
+    )
 
     # Sub-configurations
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)

@@ -18,6 +18,7 @@ from .security import AccessDecision, Capability, SecurityContext, SecurityGover
 
 class ExecutionStatus(Enum):
     """Status of action execution."""
+
     PENDING = auto()
     AUTHORIZED = auto()
     EXECUTING = auto()
@@ -32,6 +33,7 @@ class ExecutionToken:
     Immutable token authorizing a single action execution.
     Cannot be forged, cannot be reused.
     """
+
     token_id: str
     action_id: str
     agent_id: str
@@ -48,14 +50,14 @@ class ExecutionToken:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'token_id': self.token_id,
-            'action_id': self.action_id,
-            'agent_id': self.agent_id,
-            'capability': self.capability.name,
-            'issued_at': self.issued_at,
-            'expires_at': self.expires_at,
-            'audit_id': self.audit_id,
-            'constraints': self.constraints
+            "token_id": self.token_id,
+            "action_id": self.action_id,
+            "agent_id": self.agent_id,
+            "capability": self.capability.name,
+            "issued_at": self.issued_at,
+            "expires_at": self.expires_at,
+            "audit_id": self.audit_id,
+            "constraints": self.constraints,
         }
 
     def verify(self, action_id: str, agent_id: str) -> bool:
@@ -66,6 +68,7 @@ class ExecutionToken:
 @dataclass
 class ExecutionReceipt:
     """Receipt of completed action execution."""
+
     token_id: str
     action_id: str
     agent_id: str
@@ -77,7 +80,9 @@ class ExecutionReceipt:
 
     def hash(self) -> str:
         """Generate tamper-evident hash."""
-        data = f"{self.token_id}:{self.action_id}:{self.started_at}:{self.completed_at}:{self.success}"
+        data = (
+            f"{self.token_id}:{self.action_id}:{self.started_at}:{self.completed_at}:{self.success}"
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
 
 
@@ -89,10 +94,7 @@ class ActionBudget:
     """
 
     def __init__(
-        self,
-        governor: SecurityGovernor,
-        max_concurrent: int = 100,
-        default_ttl_seconds: int = 30
+        self, governor: SecurityGovernor, max_concurrent: int = 100, default_ttl_seconds: int = 30
     ):
         self.governor = governor
         self.max_concurrent = max_concurrent
@@ -108,11 +110,11 @@ class ActionBudget:
 
         # Statistics
         self.stats = {
-            'tokens_issued': 0,
-            'tokens_revoked': 0,
-            'executions_completed': 0,
-            'denials': 0,
-            'violations_attempted': 0
+            "tokens_issued": 0,
+            "tokens_revoked": 0,
+            "executions_completed": 0,
+            "denials": 0,
+            "violations_attempted": 0,
         }
 
     def set_denial_callback(self, callback: Callable[[Any, str], None]):
@@ -120,10 +122,7 @@ class ActionBudget:
         self._on_denial = callback
 
     def commit(
-        self,
-        action,
-        agent,
-        context: SecurityContext | None = None
+        self, action, agent, context: SecurityContext | None = None
     ) -> ExecutionToken | None:
         """
         Request execution token for action.
@@ -137,45 +136,42 @@ class ActionBudget:
 
         # Evaluate through governor
         ctx_dict = (context.to_dict() if isinstance(context, SecurityContext) else context) or {
-            'action': getattr(action, 'name', 'unknown'),
+            "action": getattr(action, "name", "unknown"),
         }
         decision = self.governor.evaluate_access(
-            subject={'id': getattr(agent, 'agent_id', 'unknown'), 'type': 'agent'},
-            resource={'id': getattr(action, 'action_id', 'unknown'), 'type': 'action'},
-            capability=getattr(action, 'required_capability', Capability.ACTION_EXECUTE),
+            subject={"id": getattr(agent, "agent_id", "unknown"), "type": "agent"},
+            resource={"id": getattr(action, "action_id", "unknown"), "type": "action"},
+            capability=getattr(action, "required_capability", Capability.ACTION_EXECUTE),
             context=ctx_dict,
         )
 
         if not decision.granted:
-            self.stats['denials'] += 1
+            self.stats["denials"] += 1
             self._penalize_pad(agent, decision.reason)
             return None
 
         # Issue token — use uuid4 to prevent timestamp-based collisions
         now = datetime.now()
         import datetime as _dt
+
         token = ExecutionToken(
             token_id=f"tok_{uuid4().hex}",
-            action_id=getattr(action, 'action_id', 'unknown'),
-            agent_id=getattr(agent, 'agent_id', 'unknown'),
+            action_id=getattr(action, "action_id", "unknown"),
+            agent_id=getattr(agent, "agent_id", "unknown"),
             capability=Capability.ACTION_EXECUTE,
             issued_at=now.isoformat(),
             expires_at=(now + _dt.timedelta(seconds=self.default_ttl)).isoformat(),
-            audit_id=self.governor.audit_log[-1].id if self.governor.audit_log else 'none',
-            constraints=getattr(action, 'constraints', {})
+            audit_id=self.governor.audit_log[-1].id if self.governor.audit_log else "none",
+            constraints=getattr(action, "constraints", {}),
         )
 
         self._active_tokens[token.token_id] = token
-        self.stats['tokens_issued'] += 1
+        self.stats["tokens_issued"] += 1
 
         return token
 
     def execute(
-        self,
-        token: ExecutionToken,
-        action_func: Callable,
-        *args,
-        **kwargs
+        self, token: ExecutionToken, action_func: Callable, *args, **kwargs
     ) -> ExecutionReceipt:
         """
         Execute action with token.
@@ -183,10 +179,9 @@ class ActionBudget:
         """
         # Verify token is active
         if token.token_id not in self._active_tokens:
-            self.stats['violations_attempted'] += 1
-            raise SecurityViolation(
-                f"Invalid or expired token: {token.token_id}",
-                agent_id=token.agent_id
+            self.stats["violations_attempted"] += 1
+            raise SecurityViolationError(
+                f"Invalid or expired token: {token.token_id}", agent_id=token.agent_id
             )
 
         # Remove from active (single use)
@@ -216,11 +211,11 @@ class ActionBudget:
             completed_at=completed.isoformat(),
             success=success,
             result=result,
-            side_effects=side_effects
+            side_effects=side_effects,
         )
 
         self._receipts[receipt.token_id] = receipt
-        self.stats['executions_completed'] += 1
+        self.stats["executions_completed"] += 1
 
         return receipt
 
@@ -231,33 +226,37 @@ class ActionBudget:
             self._on_denial(agent, reason)
 
         # Apply emotional penalty
-        if hasattr(agent, 'emotional_state'):
+        if hasattr(agent, "emotional_state"):
             from ..core.emotions import EmotionType
+
             agent.emotional_state.apply_stimulus(EmotionType.ANGER, 0.1)
             agent.emotional_state.apply_stimulus(EmotionType.FRUSTRATION, 0.15)
 
         # Log to agent memory
-        if hasattr(agent, 'memory'):
-            agent.memory.add_experience({
-                'type': 'action_denied',
-                'reason': reason,
-                'timestamp': datetime.now().isoformat()
-            }, importance=0.6)
+        if hasattr(agent, "memory"):
+            agent.memory.add_experience(
+                {
+                    "type": "action_denied",
+                    "reason": reason,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                importance=0.6,
+            )
 
     def revoke(self, token_id: str, reason: str) -> bool:
         """Revoke an active token."""
         if token_id in self._active_tokens:
             del self._active_tokens[token_id]
-            self.stats['tokens_revoked'] += 1
+            self.stats["tokens_revoked"] += 1
 
             # Route through governor._audit() so threat detection runs and
             # the hash chain is maintained — do NOT append directly to audit_log.
             self.governor._audit(
-                subject={'id': 'system', 'type': 'system', 'name': 'enforcement'},
-                resource={'id': token_id, 'type': 'token'},
+                subject={"id": "system", "type": "system", "name": "enforcement"},
+                resource={"id": token_id, "type": "token"},
                 capability=Capability.ACTION_EXECUTE,
                 decision=AccessDecision(granted=False, reason=reason),
-                context={'action': 'revoke_token'},
+                context={"action": "revoke_token"},
             )
             return True
         return False
@@ -282,10 +281,10 @@ class ActionBudget:
 
         for token_id in expired:
             del self._active_tokens[token_id]
-            self.stats['tokens_revoked'] += 1
+            self.stats["tokens_revoked"] += 1
 
 
-class SecurityViolation(Exception):
+class SecurityViolationError(Exception):
     """Exception for security violations."""
 
     def __init__(self, message: str, agent_id: str):
@@ -308,25 +307,17 @@ class ConstitutionalLayer:
         self.invariants: list[Callable[[Any, Any, Any], tuple[bool, str]]] = []
 
         # Violation handlers
-        self._on_violation: Callable[[SecurityViolation], None] | None = None
+        self._on_violation: Callable[[SecurityViolationError], None] | None = None
 
-    def add_invariant(
-        self,
-        invariant: Callable[[Any, Any, Any], tuple[bool, str]]
-    ):
+    def add_invariant(self, invariant: Callable[[Any, Any, Any], tuple[bool, str]]):
         """Add constitutional invariant."""
         self.invariants.append(invariant)
 
-    def set_violation_handler(self, handler: Callable[[SecurityViolation], None]):
+    def set_violation_handler(self, handler: Callable[[SecurityViolationError], None]):
         """Set handler for security violations."""
         self._on_violation = handler
 
-    def check_invariants(
-        self,
-        agent,
-        action,
-        context
-    ) -> tuple[bool, str | None]:
+    def check_invariants(self, agent, action, context) -> tuple[bool, str | None]:
         """Check all constitutional invariants."""
         for invariant in self.invariants:
             passed, reason = invariant(agent, action, context)
@@ -335,26 +326,21 @@ class ConstitutionalLayer:
         return True, None
 
     def execute(
-        self,
-        agent,
-        action,
-        action_func: Callable,
-        *args,
-        **kwargs
+        self, agent, action, action_func: Callable, *args, **kwargs
     ) -> ExecutionReceipt | None:
         """
         Execute action through constitutional layer.
         Checks invariants, gets token, executes.
         """
         # Check invariants
-        invariants_pass, reason = self.check_invariants(agent, action, kwargs.get('context'))
+        invariants_pass, reason = self.check_invariants(agent, action, kwargs.get("context"))
         if not invariants_pass:
             if self._on_violation:
-                self._on_violation(SecurityViolation(reason, agent.agent_id))
+                self._on_violation(SecurityViolationError(reason, agent.agent_id))
             return None
 
         # Get execution token
-        token = self.budget.commit(action, agent, kwargs.get('context'))
+        token = self.budget.commit(action, agent, kwargs.get("context"))
         if not token:
             return None
 
@@ -362,7 +348,7 @@ class ConstitutionalLayer:
         try:
             receipt = self.budget.execute(token, action_func, *args, **kwargs)
             return receipt
-        except SecurityViolation as e:
+        except SecurityViolationError as e:
             if self._on_violation:
                 self._on_violation(e)
             return None
@@ -374,23 +360,17 @@ class ConstitutionalLayer:
         # Governor audit log
         for record in self.governor.audit_log:
             if agent_id is None or record.subject_id == agent_id:
-                records.append({
-                    'source': 'governor',
-                    'record': record.to_dict()
-                })
+                records.append({"source": "governor", "record": record.to_dict()})
 
         # Budget receipts
         for receipt in self.budget._receipts.values():
             if agent_id is None or receipt.agent_id == agent_id:
-                records.append({
-                    'source': 'budget',
-                    'receipt': receipt.__dict__
-                })
+                records.append({"source": "budget", "receipt": receipt.__dict__})
 
         # Sort by timestamp
-        records.sort(key=lambda x:
-            x.get('record', {}).get('timestamp', '') or
-            x.get('receipt', {}).get('started_at', '')
+        records.sort(
+            key=lambda x: x.get("record", {}).get("timestamp", "")
+            or x.get("receipt", {}).get("started_at", "")
         )
 
         return records

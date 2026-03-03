@@ -32,7 +32,7 @@ app = FastAPI(
     title="CABW Enterprise API",
     description="Constitutional Agent-Based World - Enterprise Simulation Platform",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS
@@ -59,11 +59,7 @@ async def root():
         "name": "CABW Enterprise API",
         "version": "2.0.0",
         "status": "operational",
-        "endpoints": {
-            "simulation": "/simulation",
-            "docs": "/docs",
-            "health": "/health"
-        }
+        "endpoints": {"simulation": "/simulation", "docs": "/docs", "health": "/health"},
     }
 
 
@@ -76,8 +72,8 @@ async def health_check():
         "systems": {
             "simulation": "operational",
             "websocket": "operational",
-            "database": "connected"
-        }
+            "database": "connected",
+        },
     }
 
 
@@ -89,28 +85,28 @@ async def get_capabilities():
             {
                 "name": "Integrated Agents",
                 "description": "Agents with behavior trees, emotions, and needs",
-                "endpoints": ["/simulation/{id}/agents"]
+                "endpoints": ["/simulation/{id}/agents"],
             },
             {
                 "name": "Dynamic Environment",
                 "description": "Weather, hazards, and environmental events",
-                "endpoints": ["/simulation/{id}/environment", "/simulation/{id}/weather"]
+                "endpoints": ["/simulation/{id}/environment", "/simulation/{id}/weather"],
             },
             {
                 "name": "Teamwork System",
                 "description": "Team formation, shared goals, and coordination",
-                "endpoints": ["/simulation/{id}/teams"]
+                "endpoints": ["/simulation/{id}/teams"],
             },
             {
                 "name": "Security Governance",
                 "description": "PBAC, audit logging, and threat detection",
-                "endpoints": ["/simulation/{id}/security"]
+                "endpoints": ["/simulation/{id}/security"],
             },
             {
                 "name": "Real-time Updates",
                 "description": "WebSocket streams for live simulation data",
-                "endpoints": ["/simulation/{id}/ws"]
-            }
+                "endpoints": ["/simulation/{id}/ws"],
+            },
         ],
         "agent_features": [
             "OCEAN personality modeling",
@@ -119,7 +115,7 @@ async def get_capabilities():
             "Physiological needs (hunger, thirst, rest)",
             "Memory and learning",
             "Emotional contagion",
-            "Team coordination"
+            "Team coordination",
         ],
         "environment_features": [
             "Dynamic weather system",
@@ -127,6 +123,6 @@ async def get_capabilities():
             "Hazard spawning and evolution",
             "Environmental events",
             "Emotional modifiers",
-            "Movement and coordination penalties"
-        ]
+            "Movement and coordination penalties",
+        ],
     }

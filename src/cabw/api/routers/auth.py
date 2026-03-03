@@ -42,21 +42,14 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.auth.access_token_expire_minutes
-        )
+        expire = datetime.utcnow() + timedelta(minutes=settings.auth.access_token_expire_minutes)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.auth.secret_key,
-        algorithm=settings.auth.algorithm
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.auth.secret_key, algorithm=settings.auth.algorithm)
     return encoded_jwt
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    session: AsyncSession = Depends(db_manager.get_session)
+    token: str = Depends(oauth2_scheme), session: AsyncSession = Depends(db_manager.get_session)
 ) -> User:
     """Get current user from token."""
     credentials_exception = HTTPException(
@@ -66,21 +59,15 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.auth.secret_key,
-            algorithms=[settings.auth.algorithm]
-        )
+        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
         token_data = TokenData(user_id=user_id)
-    except JWTError:
-        raise credentials_exception
+    except JWTError as e:
+        raise credentials_exception from e
 
-    result = await session.execute(
-        select(User).where(User.id == token_data.user_id)
-    )
+    result = await session.execute(select(User).where(User.id == token_data.user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
@@ -89,9 +76,7 @@ async def get_current_user(
     return user
 
 
-async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
-) -> User:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """Get current active user."""
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
@@ -100,28 +85,21 @@ async def get_current_active_user(
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(
-    user_data: UserCreate,
-    session: AsyncSession = Depends(db_manager.get_session)
+    user_data: UserCreate, session: AsyncSession = Depends(db_manager.get_session)
 ) -> User:
     """Register new user."""
     # Check if email exists
-    result = await session.execute(
-        select(User).where(User.email == user_data.email)
-    )
+    result = await session.execute(select(User).where(User.email == user_data.email))
     if result.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # Check if username exists
-    result = await session.execute(
-        select(User).where(User.username == user_data.username)
-    )
+    result = await session.execute(select(User).where(User.username == user_data.username))
     if result.scalar_one_or_none():
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Username already taken"
         )
 
     # Create user
@@ -129,7 +107,7 @@ async def register(
         email=user_data.email,
         username=user_data.username,
         hashed_password=get_password_hash(user_data.password),
-        full_name=user_data.full_name
+        full_name=user_data.full_name,
     )
 
     session.add(user)
@@ -143,7 +121,7 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    session: AsyncSession = Depends(db_manager.get_session)
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> dict:
     """Login user and return access token."""
     # Find user by email or username
@@ -162,10 +140,7 @@ async def login(
         )
 
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
     # Update last login
     user.last_login = datetime.utcnow()
@@ -174,8 +149,7 @@ async def login(
     # Create token
     access_token_expires = timedelta(minutes=settings.auth.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": str(user.id)},
-        expires_delta=access_token_expires
+        data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
 
     logger.info(f"User logged in: {user.username}")
@@ -183,7 +157,7 @@ async def login(
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "expires_in": settings.auth.access_token_expire_minutes * 60
+        "expires_in": settings.auth.access_token_expire_minutes * 60,
     }
 
 
@@ -194,18 +168,15 @@ async def get_me(current_user: User = Depends(get_current_active_user)) -> User:
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(
-    current_user: User = Depends(get_current_active_user)
-) -> dict:
+async def refresh_token(current_user: User = Depends(get_current_active_user)) -> dict:
     """Refresh access token."""
     access_token_expires = timedelta(minutes=settings.auth.access_token_expire_minutes)
     access_token = create_access_token(
-        data={"sub": str(current_user.id)},
-        expires_delta=access_token_expires
+        data={"sub": str(current_user.id)}, expires_delta=access_token_expires
     )
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "expires_in": settings.auth.access_token_expire_minutes * 60
+        "expires_in": settings.auth.access_token_expire_minutes * 60,
     }

@@ -12,16 +12,19 @@ from typing import Any
 @dataclass
 class VizConfig:
     """Configuration for 3D visualization."""
+
     width: int = 1200
     height: int = 800
     background_color: str = "#1a1a2e"
     grid_color: str = "#333344"
-    agent_colors: dict[str, str] = field(default_factory=lambda: {
-        'default': '#4CAF50',
-        'leader': '#FFD700',
-        'injured': '#FF5722',
-        'dead': '#666666'
-    })
+    agent_colors: dict[str, str] = field(
+        default_factory=lambda: {
+            "default": "#4CAF50",
+            "leader": "#FFD700",
+            "injured": "#FF5722",
+            "dead": "#666666",
+        }
+    )
     show_emotions: bool = True
     show_paths: bool = True
     show_zones: bool = True
@@ -417,6 +420,6 @@ class ThreeJSRenderer:
     def export_static(self, filepath: str, simulation_state: dict[str, Any]):
         """Export static HTML file."""
         html = self.generate_html(simulation_state)
-        with open(filepath, 'w') as f:
+        with open(filepath, "w") as f:
             f.write(html)
         return filepath

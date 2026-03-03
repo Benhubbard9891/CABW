@@ -17,6 +17,7 @@ from cabw.utils.logging import get_logger
 logger = get_logger(__name__)
 router = APIRouter()
 
+
 # Active WebSocket connections
 class ConnectionManager:
     """Manage WebSocket connections."""
@@ -28,12 +29,7 @@ class ConnectionManager:
         # websocket -> user_id
         self.user_connections: dict[WebSocket, UUID] = {}
 
-    async def connect(
-        self,
-        websocket: WebSocket,
-        simulation_id: UUID,
-        user_id: UUID
-    ) -> None:
+    async def connect(self, websocket: WebSocket, simulation_id: UUID, user_id: UUID) -> None:
         """Accept and store connection."""
         await websocket.accept()
 
@@ -57,11 +53,7 @@ class ConnectionManager:
 
         logger.info(f"WebSocket disconnected from {simulation_id}")
 
-    async def broadcast_to_simulation(
-        self,
-        simulation_id: UUID,
-        message: dict
-    ) -> None:
+    async def broadcast_to_simulation(self, simulation_id: UUID, message: dict) -> None:
         """Broadcast message to all connections for a simulation."""
         if simulation_id not in self.simulation_connections:
             return
@@ -77,11 +69,7 @@ class ConnectionManager:
         for websocket in disconnected:
             self.disconnect(websocket, simulation_id)
 
-    async def send_to_user(
-        self,
-        websocket: WebSocket,
-        message: dict
-    ) -> None:
+    async def send_to_user(self, websocket: WebSocket, message: dict) -> None:
         """Send message to specific user."""
         try:
             await websocket.send_json(message)
@@ -93,10 +81,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def authenticate_websocket(
-    websocket: WebSocket,
-    session: AsyncSession
-) -> User | None:
+async def authenticate_websocket(websocket: WebSocket, session: AsyncSession) -> User | None:
     """Authenticate WebSocket connection."""
     # Get token from query params or headers
     token = websocket.query_params.get("token")
@@ -111,18 +96,12 @@ async def authenticate_websocket(
         return None
 
     try:
-        payload = jwt.decode(
-            token,
-            settings.auth.secret_key,
-            algorithms=[settings.auth.algorithm]
-        )
+        payload = jwt.decode(token, settings.auth.secret_key, algorithms=[settings.auth.algorithm])
         user_id: str = payload.get("sub")
         if user_id is None:
             return None
 
-        result = await session.execute(
-            select(User).where(User.id == user_id)
-        )
+        result = await session.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
 
     except JWTError:
@@ -133,7 +112,7 @@ async def authenticate_websocket(
 async def simulation_websocket(
     websocket: WebSocket,
     simulation_id: UUID,
-    session: AsyncSession = Depends(db_manager.get_session)
+    session: AsyncSession = Depends(db_manager.get_session),
 ) -> None:
     """WebSocket endpoint for simulation updates."""
     # Authenticate
@@ -146,8 +125,7 @@ async def simulation_websocket(
     # Verify simulation exists and belongs to user
     result = await session.execute(
         select(Simulation).where(
-            (Simulation.id == simulation_id) &
-            (Simulation.owner_id == user.id)
+            (Simulation.id == simulation_id) & (Simulation.owner_id == user.id)
         )
     )
     simulation = result.scalar_one_or_none()
@@ -160,13 +138,15 @@ async def simulation_websocket(
     await manager.connect(websocket, simulation_id, user.id)
 
     # Send initial state
-    await websocket.send_json({
-        "type": "connected",
-        "simulation_id": str(simulation_id),
-        "status": simulation.status.value,
-        "current_tick": simulation.current_tick,
-        "max_ticks": simulation.max_ticks
-    })
+    await websocket.send_json(
+        {
+            "type": "connected",
+            "simulation_id": str(simulation_id),
+            "status": simulation.status.value,
+            "current_tick": simulation.current_tick,
+            "max_ticks": simulation.max_ticks,
+        }
+    )
 
     try:
         while True:
@@ -183,32 +163,27 @@ async def simulation_websocket(
                 elif message_type == "subscribe":
                     # Subscribe to specific events
                     event_types = message.get("events", [])
-                    await websocket.send_json({
-                        "type": "subscribed",
-                        "events": event_types
-                    })
+                    await websocket.send_json({"type": "subscribed", "events": event_types})
 
                 elif message_type == "get_state":
                     # Refresh simulation state
                     await session.refresh(simulation)
-                    await websocket.send_json({
-                        "type": "state",
-                        "status": simulation.status.value,
-                        "current_tick": simulation.current_tick,
-                        "agent_count": len(simulation.agents)
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "state",
+                            "status": simulation.status.value,
+                            "current_tick": simulation.current_tick,
+                            "agent_count": len(simulation.agents),
+                        }
+                    )
 
                 else:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Unknown message type: {message_type}"
-                    })
+                    await websocket.send_json(
+                        {"type": "error", "message": f"Unknown message type: {message_type}"}
+                    )
 
             except json.JSONDecodeError:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "Invalid JSON"
-                })
+                await websocket.send_json({"type": "error", "message": "Invalid JSON"})
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, simulation_id)
@@ -219,56 +194,49 @@ async def simulation_websocket(
 
 
 # Event broadcaster for simulation events
-async def broadcast_simulation_event(
-    simulation_id: UUID,
-    event_type: str,
-    data: dict
-) -> None:
+async def broadcast_simulation_event(simulation_id: UUID, event_type: str, data: dict) -> None:
     """Broadcast simulation event to all connected clients."""
-    await manager.broadcast_to_simulation(simulation_id, {
-        "type": event_type,
-        "simulation_id": str(simulation_id),
-        "data": data
-    })
+    await manager.broadcast_to_simulation(
+        simulation_id, {"type": event_type, "simulation_id": str(simulation_id), "data": data}
+    )
 
 
-async def broadcast_tick_update(
-    simulation_id: UUID,
-    tick: int,
-    agent_states: list
-) -> None:
+async def broadcast_tick_update(simulation_id: UUID, tick: int, agent_states: list) -> None:
     """Broadcast tick update."""
-    await manager.broadcast_to_simulation(simulation_id, {
-        "type": "tick",
-        "simulation_id": str(simulation_id),
-        "tick": tick,
-        "agent_states": agent_states
-    })
+    await manager.broadcast_to_simulation(
+        simulation_id,
+        {
+            "type": "tick",
+            "simulation_id": str(simulation_id),
+            "tick": tick,
+            "agent_states": agent_states,
+        },
+    )
 
 
-async def broadcast_agent_action(
-    simulation_id: UUID,
-    agent_id: UUID,
-    action: dict
-) -> None:
+async def broadcast_agent_action(simulation_id: UUID, agent_id: UUID, action: dict) -> None:
     """Broadcast agent action."""
-    await manager.broadcast_to_simulation(simulation_id, {
-        "type": "agent_action",
-        "simulation_id": str(simulation_id),
-        "agent_id": str(agent_id),
-        "action": action
-    })
+    await manager.broadcast_to_simulation(
+        simulation_id,
+        {
+            "type": "agent_action",
+            "simulation_id": str(simulation_id),
+            "agent_id": str(agent_id),
+            "action": action,
+        },
+    )
 
 
 async def broadcast_simulation_status(
-    simulation_id: UUID,
-    status: str,
-    message: str | None = None
+    simulation_id: UUID, status: str, message: str | None = None
 ) -> None:
     """Broadcast simulation status change."""
-    await manager.broadcast_to_simulation(simulation_id, {
-        "type": "status_change",
-        "simulation_id": str(simulation_id),
-        "status": status,
-        "message": message
-    })
+    await manager.broadcast_to_simulation(
+        simulation_id,
+        {
+            "type": "status_change",
+            "simulation_id": str(simulation_id),
+            "status": status,
+            "message": message,
+        },
+    )

@@ -40,19 +40,10 @@ class Base(DeclarativeBase, AsyncAttrs, MappedAsDataclass):
     metadata = metadata
 
     # Common columns for all tables
-    id: Mapped[UUID] = mapped_column(
-        primary_key=True,
-        default_factory=uuid4,
-        sort_order=-100
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        default_factory=datetime.utcnow,
-        sort_order=-99
-    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default_factory=uuid4, sort_order=-100)
+    created_at: Mapped[datetime] = mapped_column(default_factory=datetime.utcnow, sort_order=-99)
     updated_at: Mapped[datetime] = mapped_column(
-        default_factory=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        sort_order=-98
+        default_factory=datetime.utcnow, onupdate=datetime.utcnow, sort_order=-98
     )
 
     @declared_attr.directive

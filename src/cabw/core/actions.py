@@ -23,6 +23,7 @@ logger = get_logger(__name__)
 
 class ActionCategory(Enum):
     """Categories of actions."""
+
     PHYSICAL = auto()
     COGNITIVE = auto()
     SOCIAL = auto()
@@ -36,13 +37,15 @@ class ActionCategory(Enum):
 
 class ActionPhase(Enum):
     """Execution phases of actions."""
-    PREPARATION = auto()    # Setup, gather resources
-    EXECUTION = auto()      # Main action
-    RECOVERY = auto()       # Cooldown, exhaustion
+
+    PREPARATION = auto()  # Setup, gather resources
+    EXECUTION = auto()  # Main action
+    RECOVERY = auto()  # Cooldown, exhaustion
 
 
 class ActionOutcome(Enum):
     """Possible action outcomes."""
+
     SUCCESS = auto()
     PARTIAL_SUCCESS = auto()
     FAILURE = auto()
@@ -52,8 +55,33 @@ class ActionOutcome(Enum):
 
 
 @dataclass
+class ActionContext:
+    """Execution context for an action."""
+
+    agent: Any = None
+    location: Any = None
+    world_state: Any = None
+    _data: dict[str, Any] = field(default_factory=dict)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get a value from the context data."""
+        return self._data.get(key, default)
+
+    def setdefault(self, key: str, default: Any) -> Any:
+        """Set default value in context data."""
+        return self._data.setdefault(key, default)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self._data[key] = value
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+
+@dataclass
 class ActionCost:
     """Resource costs for an action."""
+
     stamina: float = 0.0
     action_points: float = 0.0
     mana: float = 0.0  # For magical actions
@@ -62,23 +90,23 @@ class ActionCost:
 
     def can_afford(self, resources: dict[str, Any]) -> bool:
         """Check if resources are sufficient."""
-        if resources.get('stamina', 0) < self.stamina:
+        if resources.get("stamina", 0) < self.stamina:
             return False
-        if resources.get('action_points', 0) < self.action_points:
+        if resources.get("action_points", 0) < self.action_points:
             return False
-        if resources.get('mana', 0) < self.mana:
+        if resources.get("mana", 0) < self.mana:
             return False
 
-        inventory = resources.get('inventory', {})
+        inventory = resources.get("inventory", {})
         return all(inventory.get(item, 0) >= count for item, count in self.items.items())
 
     def deduct(self, resources: dict[str, Any]) -> None:
         """Deduct costs from resources."""
-        resources['stamina'] = resources.get('stamina', 0) - self.stamina
-        resources['action_points'] = resources.get('action_points', 0) - self.action_points
-        resources['mana'] = resources.get('mana', 0) - self.mana
+        resources["stamina"] = resources.get("stamina", 0) - self.stamina
+        resources["action_points"] = resources.get("action_points", 0) - self.action_points
+        resources["mana"] = resources.get("mana", 0) - self.mana
 
-        inventory = resources.get('inventory', {})
+        inventory = resources.get("inventory", {})
         for item, count in self.items.items():
             inventory[item] = inventory.get(item, 0) - count
 
@@ -86,6 +114,7 @@ class ActionCost:
 @dataclass
 class ActionPrecondition:
     """Precondition for an action."""
+
     condition_type: str  # 'skill', 'item', 'state', 'relationship', 'zone'
     key: str
     operator: str  # 'eq', 'gt', 'lt', 'gte', 'lte', 'in', 'contains'
@@ -95,17 +124,17 @@ class ActionPrecondition:
     def check(self, context: dict[str, Any]) -> tuple[bool, str | None]:
         """Check if precondition is satisfied."""
         # Get value from context
-        if self.condition_type == 'skill':
-            actual = context.get('skills', {}).get(self.key)
-        elif self.condition_type == 'item':
-            actual = context.get('inventory', {}).get(self.key, 0)
-        elif self.condition_type == 'state':
-            actual = context.get('state', {}).get(self.key)
-        elif self.condition_type == 'relationship':
-            rel = context.get('relationships', {}).get(self.key)
-            actual = rel.get('trust') if rel else None
-        elif self.condition_type == 'zone':
-            actual = context.get('zone', {}).get(self.key)
+        if self.condition_type == "skill":
+            actual = context.get("skills", {}).get(self.key)
+        elif self.condition_type == "item":
+            actual = context.get("inventory", {}).get(self.key, 0)
+        elif self.condition_type == "state":
+            actual = context.get("state", {}).get(self.key)
+        elif self.condition_type == "relationship":
+            rel = context.get("relationships", {}).get(self.key)
+            actual = rel.get("trust") if rel else None
+        elif self.condition_type == "zone":
+            actual = context.get("zone", {}).get(self.key)
         else:
             actual = context.get(self.key)
 
@@ -113,7 +142,10 @@ class ActionPrecondition:
         result = self._compare(actual, self.operator, self.value)
 
         if not result:
-            msg = self.error_message or f"Precondition failed: {self.key} {self.operator} {self.value}"
+            msg = (
+                self.error_message
+                or f"Precondition failed: {self.key} {self.operator} {self.value}"
+            )
             return False, msg
 
         return True, None
@@ -123,20 +155,17 @@ class ActionPrecondition:
         if actual is None:
             return False
 
-        if op == 'eq':
-            return actual == expected
-        elif op == 'gt':
-            return actual > expected
-        elif op == 'lt':
-            return actual < expected
-        elif op == 'gte':
-            return actual >= expected
-        elif op == 'lte':
-            return actual <= expected
-        elif op == 'in':
-            return actual in expected
-        elif op == 'contains':
-            return expected in actual
+        ops = {
+            "eq": lambda a, e: a == e,
+            "gt": lambda a, e: a > e,
+            "lt": lambda a, e: a < e,
+            "gte": lambda a, e: a >= e,
+            "lte": lambda a, e: a <= e,
+            "in": lambda a, e: a in e,
+            "contains": lambda a, e: e in a,
+        }
+        if op in ops:
+            return ops[op](actual, expected)
 
         return False
 
@@ -144,6 +173,7 @@ class ActionPrecondition:
 @dataclass
 class ActionEffect:
     """Effect of an action."""
+
     effect_type: str  # 'stat', 'item', 'emotion', 'relationship', 'zone', 'memory'
     target: str
     operation: str  # 'set', 'add', 'multiply', 'remove'
@@ -155,67 +185,70 @@ class ActionEffect:
         """Apply effect to context."""
         if self.probability < 1.0:
             import random
+
             if random.random() > self.probability:
-                return {'applied': False, 'reason': 'probability'}
+                return {"applied": False, "reason": "probability"}
 
-        result = {'applied': True, 'effect_type': self.effect_type}
+        result = {"applied": True, "effect_type": self.effect_type}
 
-        if self.effect_type == 'stat':
-            stats = context.setdefault('stats', {})
+        if self.effect_type == "stat":
+            stats = context.setdefault("stats", {})
             current = stats.get(self.target, 0)
             new_val = self._apply_operation(current, self.operation, self.value)
             stats[self.target] = new_val
-            result['old_value'] = current
-            result['new_value'] = new_val
+            result["old_value"] = current
+            result["new_value"] = new_val
 
-        elif self.effect_type == 'item':
-            inventory = context.setdefault('inventory', {})
-            if self.operation == 'add':
+        elif self.effect_type == "item":
+            inventory = context.setdefault("inventory", {})
+            if self.operation == "add":
                 inventory[self.target] = inventory.get(self.target, 0) + self.value
-            elif self.operation == 'remove':
+            elif self.operation == "remove":
                 inventory[self.target] = max(0, inventory.get(self.target, 0) - self.value)
-            result['new_count'] = inventory.get(self.target, 0)
+            result["new_count"] = inventory.get(self.target, 0)
 
-        elif self.effect_type == 'emotion':
-            emotions = context.setdefault('emotions', {})
+        elif self.effect_type == "emotion":
+            emotions = context.setdefault("emotions", {})
             current = emotions.get(self.target, 0)
             new_val = self._apply_operation(current, self.operation, self.value)
             emotions[self.target] = max(0, min(1, new_val))
-            result['old_value'] = current
-            result['new_value'] = emotions[self.target]
+            result["old_value"] = current
+            result["new_value"] = emotions[self.target]
 
-        elif self.effect_type == 'relationship':
-            relationships = context.setdefault('relationships', {})
+        elif self.effect_type == "relationship":
+            relationships = context.setdefault("relationships", {})
             rel = relationships.get(self.target, {})
-            metric = self.value.get('metric', 'affection')
-            change = self.value.get('change', 0)
+            metric = self.value.get("metric", "affection")
+            change = self.value.get("change", 0)
             old_val = rel.get(metric, 0)
-            rel[metric] = self._apply_operation(old_val, 'add', change)
+            rel[metric] = self._apply_operation(old_val, "add", change)
             relationships[self.target] = rel
-            result['metric'] = metric
-            result['old_value'] = old_val
-            result['new_value'] = rel[metric]
+            result["metric"] = metric
+            result["old_value"] = old_val
+            result["new_value"] = rel[metric]
 
-        elif self.effect_type == 'memory':
-            memories = context.setdefault('memories', [])
-            memories.append({
-                'content': self.value.get('content', ''),
-                'type': self.value.get('type', 'observation'),
-                'timestamp': datetime.utcnow().isoformat(),
-            })
-            result['memory_added'] = True
+        elif self.effect_type == "memory":
+            memories = context.setdefault("memories", [])
+            memories.append(
+                {
+                    "content": self.value.get("content", ""),
+                    "type": self.value.get("type", "observation"),
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+            )
+            result["memory_added"] = True
 
         return result
 
     def _apply_operation(self, current: float, op: str, value: Any) -> float:
         """Apply mathematical operation."""
-        if op == 'set':
+        if op == "set":
             return value
-        elif op == 'add':
+        elif op == "add":
             return current + value
-        elif op == 'multiply':
+        elif op == "multiply":
             return current * value
-        elif op == 'remove':
+        elif op == "remove":
             return max(0, current - value)
         return current
 
@@ -231,6 +264,7 @@ class ComplexAction:
     - Conditional (branch based on state)
     - Parallel (multiple actions simultaneously)
     """
+
     id: str
     name: str
     description: str
@@ -252,7 +286,7 @@ class ComplexAction:
 
     # Composition
     sub_actions: list[ComplexAction] = field(default_factory=list)
-    composition_type: str = 'atomic'  # 'atomic', 'sequence', 'choice', 'parallel'
+    composition_type: str = "atomic"  # 'atomic', 'sequence', 'choice', 'parallel'
 
     # Metadata
     skill_requirements: dict[str, float] = field(default_factory=dict)
@@ -273,7 +307,7 @@ class ComplexAction:
             failures.append("Insufficient resources")
 
         # Check skill requirements
-        skills = context.get('skills', {})
+        skills = context.get("skills", {})
         for skill, level in self.skill_requirements.items():
             if skills.get(skill, 0) < level:
                 failures.append(f"Insufficient {skill} skill (need {level})")
@@ -290,10 +324,10 @@ class ComplexAction:
         can_exec, failures = self.can_execute(context)
         if not can_exec:
             return {
-                'success': False,
-                'outcome': ActionOutcome.FAILURE,
-                'reason': 'precondition_failed',
-                'failures': failures,
+                "success": False,
+                "outcome": ActionOutcome.FAILURE,
+                "reason": "precondition_failed",
+                "failures": failures,
             }
 
         # Deduct costs
@@ -306,24 +340,24 @@ class ComplexAction:
             results.append(result)
 
         return {
-            'success': True,
-            'outcome': ActionOutcome.SUCCESS,
-            'effects_applied': results,
-            'duration': self.duration,
+            "success": True,
+            "outcome": ActionOutcome.SUCCESS,
+            "effects_applied": results,
+            "duration": self.duration,
         }
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'category': self.category.name,
-            'duration': self.duration,
-            'interruptible': self.interruptible,
-            'requires_target': self.requires_target,
-            'skill_requirements': self.skill_requirements,
-            'tags': list(self.tags),
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "category": self.category.name,
+            "duration": self.duration,
+            "interruptible": self.interruptible,
+            "requires_target": self.requires_target,
+            "skill_requirements": self.skill_requirements,
+            "tags": list(self.tags),
         }
 
 
@@ -335,138 +369,134 @@ class ActionLibrary:
     def create_attack_action() -> ComplexAction:
         """Create attack action."""
         return ComplexAction(
-            id='attack',
-            name='Attack',
-            description='Attack a target with equipped weapon',
+            id="attack",
+            name="Attack",
+            description="Attack a target with equipped weapon",
             category=ActionCategory.COMBAT,
             preconditions=[
-                ActionPrecondition('state', 'in_combat', 'eq', True, 'Must be in combat'),
-                ActionPrecondition('state', 'stunned', 'eq', False, 'Cannot attack while stunned'),
+                ActionPrecondition("state", "in_combat", "eq", True, "Must be in combat"),
+                ActionPrecondition("state", "stunned", "eq", False, "Cannot attack while stunned"),
             ],
             costs=ActionCost(stamina=15.0, action_points=1.0),
             effects=[
-                ActionEffect('stat', 'target_hp', 'add', -10.0, probability=0.8),
-                ActionEffect('emotion', 'anger', 'add', 0.1),
-                ActionEffect('memory', 'combat', 'add', {
-                    'content': 'Attacked an enemy',
-                    'type': 'combat'
-                }),
+                ActionEffect("stat", "target_hp", "add", -10.0, probability=0.8),
+                ActionEffect("emotion", "anger", "add", 0.1),
+                ActionEffect(
+                    "memory", "combat", "add", {"content": "Attacked an enemy", "type": "combat"}
+                ),
             ],
             failure_effects=[
-                ActionEffect('emotion', 'frustration', 'add', 0.2),
+                ActionEffect("emotion", "frustration", "add", 0.2),
             ],
             duration=1.0,
             requires_target=True,
-            skill_requirements={'combat': 0.1},
-            tags={'combat', 'aggressive'},
+            skill_requirements={"combat": 0.1},
+            tags={"combat", "aggressive"},
         )
 
     @staticmethod
     def create_heal_action() -> ComplexAction:
         """Create heal action."""
         return ComplexAction(
-            id='heal',
-            name='Heal',
-            description='Heal self or ally',
+            id="heal",
+            name="Heal",
+            description="Heal self or ally",
             category=ActionCategory.PHYSICAL,
             preconditions=[
-                ActionPrecondition('item', 'healing_potion', 'gte', 1, 'Need healing potion'),
+                ActionPrecondition("item", "healing_potion", "gte", 1, "Need healing potion"),
             ],
-            costs=ActionCost(
-                stamina=5.0,
-                action_points=1.0,
-                items={'healing_potion': 1}
-            ),
+            costs=ActionCost(stamina=5.0, action_points=1.0, items={"healing_potion": 1}),
             effects=[
-                ActionEffect('stat', 'hp', 'add', 25.0),
-                ActionEffect('emotion', 'gratitude', 'add', 0.1),
+                ActionEffect("stat", "hp", "add", 25.0),
+                ActionEffect("emotion", "gratitude", "add", 0.1),
             ],
             duration=2.0,
-            tags={'healing', 'support'},
+            tags={"healing", "support"},
         )
 
     @staticmethod
     def create_persuade_action() -> ComplexAction:
         """Create social persuasion action."""
         return ComplexAction(
-            id='persuade',
-            name='Persuade',
-            description='Attempt to persuade someone',
+            id="persuade",
+            name="Persuade",
+            description="Attempt to persuade someone",
             category=ActionCategory.SOCIAL,
             preconditions=[
-                ActionPrecondition('relationship', 'target', 'gte', 0, 'Cannot persuade enemies'),
+                ActionPrecondition("relationship", "target", "gte", 0, "Cannot persuade enemies"),
             ],
             costs=ActionCost(stamina=5.0, action_points=1.0),
             effects=[
-                ActionEffect('relationship', 'target', 'add', {
-                    'metric': 'trust',
-                    'change': 0.1
-                }, probability=0.6),
-                ActionEffect('emotion', 'pride', 'add', 0.1, probability=0.5),
+                ActionEffect(
+                    "relationship",
+                    "target",
+                    "add",
+                    {"metric": "trust", "change": 0.1},
+                    probability=0.6,
+                ),
+                ActionEffect("emotion", "pride", "add", 0.1, probability=0.5),
             ],
             failure_effects=[
-                ActionEffect('relationship', 'target', 'add', {
-                    'metric': 'trust',
-                    'change': -0.05
-                }),
+                ActionEffect("relationship", "target", "add", {"metric": "trust", "change": -0.05}),
             ],
             duration=3.0,
             requires_target=True,
-            skill_requirements={'social': 0.3},
-            tags={'social', 'diplomatic'},
+            skill_requirements={"social": 0.3},
+            tags={"social", "diplomatic"},
         )
 
     @staticmethod
     def create_coordinate_action() -> ComplexAction:
         """Create teamwork coordination action."""
         return ComplexAction(
-            id='coordinate',
-            name='Coordinate',
-            description='Coordinate with teammates for tactical advantage',
+            id="coordinate",
+            name="Coordinate",
+            description="Coordinate with teammates for tactical advantage",
             category=ActionCategory.SOCIAL,
             preconditions=[
-                ActionPrecondition('state', 'has_team', 'eq', True, 'Need teammates'),
-                ActionPrecondition('state', 'in_combat', 'eq', True, 'Must be in combat'),
+                ActionPrecondition("state", "has_team", "eq", True, "Need teammates"),
+                ActionPrecondition("state", "in_combat", "eq", True, "Must be in combat"),
             ],
             costs=ActionCost(stamina=8.0, action_points=0.5),
             effects=[
-                ActionEffect('stat', 'team_coordination', 'set', 1.0),
-                ActionEffect('stat', 'tactical_bonus', 'add', 0.2),
-                ActionEffect('emotion', 'trust', 'add', 0.05),
-                ActionEffect('memory', 'teamwork', 'add', {
-                    'content': 'Successfully coordinated with team',
-                    'type': 'achievement'
-                }),
+                ActionEffect("stat", "team_coordination", "set", 1.0),
+                ActionEffect("stat", "tactical_bonus", "add", 0.2),
+                ActionEffect("emotion", "trust", "add", 0.05),
+                ActionEffect(
+                    "memory",
+                    "teamwork",
+                    "add",
+                    {"content": "Successfully coordinated with team", "type": "achievement"},
+                ),
             ],
             duration=2.0,
-            skill_requirements={'leadership': 0.2},
-            tags={'teamwork', 'leadership', 'tactical'},
+            skill_requirements={"leadership": 0.2},
+            tags={"teamwork", "leadership", "tactical"},
         )
 
     @staticmethod
     def create_cover_ally_action() -> ComplexAction:
         """Create cover ally action."""
         return ComplexAction(
-            id='cover_ally',
-            name='Cover Ally',
-            description='Protect an ally from incoming attacks',
+            id="cover_ally",
+            name="Cover Ally",
+            description="Protect an ally from incoming attacks",
             category=ActionCategory.COMBAT,
             preconditions=[
-                ActionPrecondition('state', 'in_combat', 'eq', True),
-                ActionPrecondition('relationship', 'target', 'gte', 0.3, 'Must trust ally'),
+                ActionPrecondition("state", "in_combat", "eq", True),
+                ActionPrecondition("relationship", "target", "gte", 0.3, "Must trust ally"),
             ],
             costs=ActionCost(stamina=10.0, action_points=1.0),
             effects=[
-                ActionEffect('stat', 'ally_defense', 'add', 0.5),
-                ActionEffect('relationship', 'target', 'add', {
-                    'metric': 'affection',
-                    'change': 0.05
-                }),
-                ActionEffect('emotion', 'pride', 'add', 0.05),
+                ActionEffect("stat", "ally_defense", "add", 0.5),
+                ActionEffect(
+                    "relationship", "target", "add", {"metric": "affection", "change": 0.05}
+                ),
+                ActionEffect("emotion", "pride", "add", 0.05),
             ],
             duration=1.5,
             requires_target=True,
-            tags={'teamwork', 'defensive', 'protective'},
+            tags={"teamwork", "defensive", "protective"},
         )
 
 
@@ -495,16 +525,18 @@ class ActionSequence:
         action = self.actions[self.current_index]
         result = action.execute(context)
 
-        if result['success']:
-            self.completed.append({
-                'action': action.id,
-                'result': result,
-            })
+        if result["success"]:
+            self.completed.append(
+                {
+                    "action": action.id,
+                    "result": result,
+                }
+            )
             self.current_index += 1
         else:
             self.failed = {
-                'action': action.id,
-                'result': result,
+                "action": action.id,
+                "result": result,
             }
 
         return result
@@ -516,23 +548,23 @@ class ActionSequence:
     def get_summary(self) -> dict[str, Any]:
         """Get execution summary."""
         return {
-            'name': self.name,
-            'total_actions': len(self.actions),
-            'completed': len(self.completed),
-            'failed': self.failed is not None,
-            'completed_actions': [c['action'] for c in self.completed],
-            'failure': self.failed,
+            "name": self.name,
+            "total_actions": len(self.actions),
+            "completed": len(self.completed),
+            "failed": self.failed is not None,
+            "completed_actions": [c["action"] for c in self.completed],
+            "failure": self.failed,
         }
 
 
 __all__ = [
-    'ActionCategory',
-    'ActionPhase',
-    'ActionOutcome',
-    'ActionCost',
-    'ActionPrecondition',
-    'ActionEffect',
-    'ComplexAction',
-    'ActionLibrary',
-    'ActionSequence',
+    "ActionCategory",
+    "ActionPhase",
+    "ActionOutcome",
+    "ActionCost",
+    "ActionPrecondition",
+    "ActionEffect",
+    "ComplexAction",
+    "ActionLibrary",
+    "ActionSequence",
 ]

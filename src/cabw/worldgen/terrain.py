@@ -12,6 +12,7 @@ from enum import Enum, auto
 
 class TerrainType(Enum):
     """Types of terrain."""
+
     DEEP_WATER = auto()
     SHALLOW_WATER = auto()
     BEACH = auto()
@@ -27,6 +28,7 @@ class TerrainType(Enum):
 @dataclass
 class Biome:
     """Biome definition."""
+
     name: str
     terrain_types: list[TerrainType]
     resource_abundance: dict[str, float]
@@ -63,8 +65,8 @@ class PerlinNoise:
 
     def noise(self, x: float, y: float) -> float:
         """Generate Perlin noise at (x, y)."""
-        X = int(math.floor(x)) & 255
-        Y = int(math.floor(y)) & 255
+        X = int(math.floor(x)) & 255  # noqa: N806
+        Y = int(math.floor(y)) & 255  # noqa: N806
 
         x -= math.floor(x)
         y -= math.floor(y)
@@ -72,27 +74,22 @@ class PerlinNoise:
         u = self._fade(x)
         v = self._fade(y)
 
-        A = self.permutation[X] + Y
-        B = self.permutation[X + 1] + Y
+        A = self.permutation[X] + Y  # noqa: N806
+        B = self.permutation[X + 1] + Y  # noqa: N806
 
-        return self._lerp(v,
-            self._lerp(u,
-                self._grad(self.permutation[A], x, y),
-                self._grad(self.permutation[B], x - 1, y)
+        return self._lerp(
+            v,
+            self._lerp(
+                u, self._grad(self.permutation[A], x, y), self._grad(self.permutation[B], x - 1, y)
             ),
-            self._lerp(u,
+            self._lerp(
+                u,
                 self._grad(self.permutation[A + 1], x, y - 1),
-                self._grad(self.permutation[B + 1], x - 1, y - 1)
-            )
+                self._grad(self.permutation[B + 1], x - 1, y - 1),
+            ),
         )
 
-    def octave_noise(
-        self,
-        x: float,
-        y: float,
-        octaves: int = 4,
-        persistence: float = 0.5
-    ) -> float:
+    def octave_noise(self, x: float, y: float, octaves: int = 4, persistence: float = 0.5) -> float:
         """Generate octave noise."""
         total = 0.0
         frequency = 1.0
@@ -122,39 +119,39 @@ class TerrainGenerator:
         (0.6, TerrainType.FOREST),
         (0.7, TerrainType.HILLS),
         (0.85, TerrainType.MOUNTAINS),
-        (1.0, TerrainType.SNOW)
+        (1.0, TerrainType.SNOW),
     ]
 
     # Biome definitions
     BIOMES = {
-        'temperate': Biome(
-            name='Temperate',
+        "temperate": Biome(
+            name="Temperate",
             terrain_types=[TerrainType.PLAINS, TerrainType.FOREST, TerrainType.HILLS],
-            resource_abundance={'food': 0.8, 'wood': 0.9, 'stone': 0.5},
+            resource_abundance={"food": 0.8, "wood": 0.9, "stone": 0.5},
             hazard_chance=0.1,
-            movement_cost=1.0
+            movement_cost=1.0,
         ),
-        'desert': Biome(
-            name='Desert',
+        "desert": Biome(
+            name="Desert",
             terrain_types=[TerrainType.DESERT],
-            resource_abundance={'food': 0.2, 'water': 0.1, 'minerals': 0.7},
+            resource_abundance={"food": 0.2, "water": 0.1, "minerals": 0.7},
             hazard_chance=0.3,
-            movement_cost=1.5
+            movement_cost=1.5,
         ),
-        'arctic': Biome(
-            name='Arctic',
+        "arctic": Biome(
+            name="Arctic",
             terrain_types=[TerrainType.SNOW, TerrainType.MOUNTAINS],
-            resource_abundance={'food': 0.3, 'fur': 0.8, 'minerals': 0.6},
+            resource_abundance={"food": 0.3, "fur": 0.8, "minerals": 0.6},
             hazard_chance=0.4,
-            movement_cost=2.0
+            movement_cost=2.0,
         ),
-        'coastal': Biome(
-            name='Coastal',
+        "coastal": Biome(
+            name="Coastal",
             terrain_types=[TerrainType.BEACH, TerrainType.SHALLOW_WATER],
-            resource_abundance={'food': 0.9, 'water': 1.0, 'fish': 0.9},
+            resource_abundance={"food": 0.9, "water": 1.0, "fish": 0.9},
             hazard_chance=0.2,
-            movement_cost=0.8
-        )
+            movement_cost=0.8,
+        ),
     }
 
     def __init__(self, seed: int | None = None):
@@ -164,10 +161,7 @@ class TerrainGenerator:
         self.temperature_noise = PerlinNoise(self.seed + 2)
 
     def generate_terrain(
-        self,
-        width: int,
-        height: int,
-        scale: float = 0.05
+        self, width: int, height: int, scale: float = 0.05
     ) -> list[list[TerrainType]]:
         """
         Generate terrain map.
@@ -206,9 +200,7 @@ class TerrainGenerator:
         return TerrainType.SNOW
 
     def _smooth_terrain(
-        self,
-        terrain: list[list[TerrainType]],
-        iterations: int = 1
+        self, terrain: list[list[TerrainType]], iterations: int = 1
     ) -> list[list[TerrainType]]:
         """Smooth terrain using cellular automata."""
         height = len(terrain)
@@ -242,12 +234,7 @@ class TerrainGenerator:
 
         return terrain
 
-    def generate_biome_map(
-        self,
-        width: int,
-        height: int,
-        scale: float = 0.03
-    ) -> list[list[str]]:
+    def generate_biome_map(self, width: int, height: int, scale: float = 0.03) -> list[list[str]]:
         """Generate biome map."""
         biome_map = []
 
@@ -268,30 +255,23 @@ class TerrainGenerator:
 
         return biome_map
 
-    def _temperature_moisture_to_biome(
-        self,
-        temperature: float,
-        moisture: float
-    ) -> str:
+    def _temperature_moisture_to_biome(self, temperature: float, moisture: float) -> str:
         """Convert temperature and moisture to biome."""
         # Normalize
         temp = (temperature + 1) / 2  # 0 to 1
         moist = (moisture + 1) / 2
 
         if temp < 0.2:
-            return 'arctic'
+            return "arctic"
         elif temp > 0.8:
-            return 'desert' if moist < 0.3 else 'temperate'
+            return "desert" if moist < 0.3 else "temperate"
         elif moist > 0.7:
-            return 'coastal'
+            return "coastal"
         else:
-            return 'temperate'
+            return "temperate"
 
     def find_spawn_locations(
-        self,
-        terrain: list[list[TerrainType]],
-        count: int,
-        preferred: list[TerrainType] = None
+        self, terrain: list[list[TerrainType]], count: int, preferred: list[TerrainType] = None
     ) -> list[tuple[int, int]]:
         """Find suitable spawn locations."""
         preferred = preferred or [TerrainType.PLAINS, TerrainType.FOREST]
@@ -311,12 +291,7 @@ class TerrainGenerator:
         else:
             return candidates
 
-    def export_heightmap(
-        self,
-        width: int,
-        height: int,
-        scale: float = 0.05
-    ) -> list[list[float]]:
+    def export_heightmap(self, width: int, height: int, scale: float = 0.05) -> list[list[float]]:
         """Export raw heightmap for external use."""
         heightmap = []
 
