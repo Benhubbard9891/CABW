@@ -9,14 +9,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 WORKDIR /build
-COPY pyproject.toml .
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir build
 
 # Build wheel
-RUN mkdir -p src/cabw && \
-    echo "# Placeholder" > src/cabw/__init__.py && \
-    python -m build --wheel
+RUN python -m build --wheel
 
 # Production stage
 FROM python:3.12-slim as production
@@ -63,7 +62,12 @@ FROM production as development
 USER root
 
 # Install development dependencies
-RUN pip install --no-cache-dir cabw-enterprise[dev]
+COPY --from=builder /build/dist/*.whl /tmp/
+RUN set -euo pipefail; \
+    wheel_path=$(ls /tmp/*.whl | head -n 1); \
+    pip install --no-cache-dir "$wheel_path" && \
+    pip install --no-cache-dir "${wheel_path}[dev]" && \
+    rm /tmp/*.whl
 
 USER cabw
 
