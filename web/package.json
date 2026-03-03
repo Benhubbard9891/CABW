@@ -1,0 +1,1 @@
+{\n  "name": "web-visualization-layer",\n  "version": "1.0.0",\n  "description": "A web visualization layer for the CABW project.",\n  "main": "index.js",\n  "scripts": {\n    "test": "echo 'No tests specified' && exit 0"\n  },\n  "keywords": ["visualization", "web"],\n  "author": "Benhubbard9891",\n  "license": "MIT"\n}
