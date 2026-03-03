@@ -1,78 +1,187 @@
-# CABW Enterprise - Enhanced Agent Simulation Platform
+<div align="center">
 
-A production-ready, enterprise-grade multi-agent simulation system with advanced AI capabilities, security-first governance, and emergent behavior architecture.
+# CABW Enterprise
+
+### Constitutional Agent-Based World - Enterprise Edition
+
+[![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/Benhubbard9891/CABW)
+[![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-brightgreen.svg)]()
+
+**A production-ready, enterprise-grade multi-agent simulation platform with advanced AI capabilities, security-first governance, and emergent behavior architecture.**
+
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [API Reference](#api-reference) • [Contributing](#contributing) • [License](#license)
+
+</div>
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+  - [Core Agent Systems](#core-agent-systems)
+  - [Governance & Security](#governance--security)
+  - [Simulation Engine](#simulation-engine)
+  - [Machine Learning](#machine-learning)
+  - [Visualization](#visualization)
+  - [Distributed Computing](#distributed-computing)
+  - [Economy System](#economy-system)
+  - [World Generation](#world-generation)
+  - [REST API & WebSocket](#rest-api--websocket)
+- [Quick Start](#quick-start)
+  - [Requirements](#requirements)
+  - [Installation](#installation)
+  - [Running the Demo](#running-the-demo)
+  - [Starting the API Server](#starting-the-api-server)
+  - [Docker Deployment](#docker-deployment)
+- [Documentation](#documentation)
+  - [Architecture](#architecture)
+  - [Agent Architecture](#agent-architecture)
+  - [Behavior Trees](#behavior-trees)
+  - [Emotional System](#emotional-system)
+  - [Teamwork System](#teamwork-system)
+  - [Environment System](#environment-system)
+  - [Security Governance](#security-governance)
+  - [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Performance](#performance)
+- [Testing](#testing)
+- [Monitoring](#monitoring)
+- [Known Constraints](#known-constraints)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
 
 ## Overview
 
-CABW (Constitutional Agent-Based World) Enterprise extends the base simulation framework with sophisticated agent behaviors, dynamic environments, teamwork systems, and comprehensive security governance.
+CABW (Constitutional Agent-Based World) Enterprise is a comprehensive multi-agent simulation framework designed for research, development, and production deployments. It combines sophisticated agent behaviors, dynamic environments, teamwork systems, and security-first governance into a unified, extensible platform.
 
-### Key Features
+The platform is built around a **constitutional governance model** where security and policy enforcement are structurally unavoidable—not optional advisory functions that agents can bypass.
+
+---
+
+## Features
+
+### Core Agent Systems
 
 | Feature | Description |
 |---------|-------------|
 | **Integrated Agents** | Full-featured agents with behavior trees, emotions, needs, and memory |
-| **Advanced Emotions** | PAD-based emotional system with trauma, regulation, and contagion |
+| **Advanced Emotions** | PAD-based emotional system with 20 emotions, trauma tracking, and contagion |
 | **Complex Actions** | Actions with preconditions, effects, costs, and composition |
-| **Behavior Trees** | Hierarchical decision-making with emergent behavior patterns |
-| **Teamwork System** | Dynamic team formation, shared goals, and coordination |
-| **Dynamic Environment** | Weather, day/night cycle, hazards, and environmental events |
-| **Security Governance** | PBAC (Policy-Based Access Control) with audit logging |
-| **Real-time API** | FastAPI with WebSocket support for live updates |
-| **Persistence** | Async SQLAlchemy ORM with full state tracking |
+| **Behavior Trees** | 10+ node types for hierarchical decision-making with emergent patterns |
+| **Teamwork System** | Dynamic team formation, 5 roles, shared goals, and coordination bonuses |
+| **Physiological Needs** | Hunger, thirst, rest, safety, social, and achievement drives |
+| **OCEAN Personality** | Big Five personality traits influencing all agent behaviors |
+| **Dynamic Environment** | Weather (8 types), day/night cycle, seasons, and hazards (8 types) |
 
-## Architecture
+### Governance & Security
 
-```
-cabw_enterprise/
-├── src/cabw/
-│   ├── core/               # Core agent systems
-│   │   ├── emotions.py         # Emotional system with contagion
-│   │   ├── actions.py          # Complex action framework
-│   │   ├── teamwork.py         # Team formation and goals
-│   │   ├── behavior_tree.py    # BT nodes and library
-│   │   ├── world_features.py   # Environment dynamics
-│   │   ├── deliberation.py     # Action deliberation engine (memory→score wire)
-│   │   └── integrated_agent.py # Unified agent class
-│   ├── simulation/
-│   │   ├── engine.py           # Enhanced simulation engine
-│   │   └── deterministic.py    # Event-queue deterministic replay engine
-│   ├── governance/
-│   │   ├── security.py         # Security-first governance (PBAC, audit chain)
-│   │   └── enforcement.py      # Execution tokens and constitutional layer
-│   ├── ml/
-│   │   ├── rl_agents.py        # PPO-style RL for agent policy learning
-│   │   ├── behavior_optimization.py # Evolutionary deliberation-weight tuning
-│   │   └── nlp_interface.py    # Natural-language command interface
-│   ├── economy/
-│   │   └── resources.py        # Resource types, pools, and scarcity mechanics
-│   ├── api/
-│   │   ├── main.py             # FastAPI application
-│   │   └── routers/
-│   │       └── simulation.py   # API endpoints
-│   └── db/
-│       └── models.py           # Database models
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
-└── demo_enhanced.py        # Comprehensive demo
-```
+| Feature | Description |
+|---------|-------------|
+| **Constitutional Layer** | Structural enforcement—no action executes without authorization |
+| **PBAC** | Policy-Based Access Control with 4 security levels and 10 capabilities |
+| **Execution Tokens** | Single-use, immutable authorization for every action |
+| **Tamper-Evident Audit** | Hash-chained audit logs for complete traceability |
+| **JWT Authentication** | Secure API access with role-based permissions (VIEWER, OPERATOR, ADMIN, SYSTEM) |
+| **Rate Limiting** | Per-subject rate limiting with automatic blocking |
+
+### Simulation Engine
+
+| Feature | Description |
+|---------|-------------|
+| **Deterministic Replay** | Seeded RNG + event-queue architecture for reproducible simulations |
+| **Event Queue** | Serial event processing eliminates race conditions |
+| **State Snapshots** | Export and restore complete simulation state |
+| **Configurable Tick Rate** | Adjustable simulation speed (default: 2.0 ticks/second) |
+
+### Machine Learning
+
+| Feature | Description |
+|---------|-------------|
+| **Reinforcement Learning** | PPO-style RL with adaptive OCEAN traits |
+| **Behavior Optimization** | Evolutionary algorithm for deliberation weight tuning |
+| **NLP Interface** | Natural language command processing and agent dialogue |
+| **Deliberation Engine** | 7-factor action scoring (personality, emotion, memory, relationship, need, environment, social) |
+
+### Visualization
+
+| Feature | Description |
+|---------|-------------|
+| **3D Renderer** | Three.js-based visualization with real-time updates |
+| **Dashboard** | WebSocket-powered metrics dashboard |
+| **Emotion Indicators** | Color-coded emotional state visualization |
+| **Path Visualization** | Agent movement tracking |
+
+### Distributed Computing
+
+| Feature | Description |
+|---------|-------------|
+| **Redis Messaging** | Pub/sub messaging for multi-node deployments |
+| **Agent Migration** | Transfer agents between simulation nodes |
+| **Synchronization** | Cross-node state synchronization |
+| **Heartbeat Monitoring** | Node health tracking |
+
+### Economy System
+
+| Feature | Description |
+|---------|-------------|
+| **8 Resource Types** | Food, water, medicine, fuel, materials, tools, information, currency |
+| **Resource Pools** | Location-based deposits with extraction and regeneration |
+| **Scarcity Mechanics** | Global and local scarcity tracking affects agent behavior |
+| **Quality & Durability** | Resources have quality levels and degradation |
+
+### World Generation
+
+| Feature | Description |
+|---------|-------------|
+| **Procedural Terrain** | Perlin noise-based terrain generation |
+| **10 Terrain Types** | Deep water, shallow water, beach, plains, forest, hills, mountains, snow, desert, swamp |
+| **Biome System** | Temperature and moisture-based biome generation |
+| **Spawn Location Finding** | Intelligent agent spawn point selection |
+
+### REST API & WebSocket
+
+| Feature | Description |
+|---------|-------------|
+| **FastAPI Backend** | High-performance async API |
+| **Real-time Updates** | WebSocket streams for live simulation data |
+| **Full CRUD** | Complete simulation, agent, and team management |
+| **Async SQLAlchemy** | Database persistence with PostgreSQL/SQLite support |
+
+---
 
 ## Quick Start
+
+### Requirements
+
+- **Python**: 3.10, 3.11, or 3.12
+- **Database**: PostgreSQL (recommended) or SQLite
+- **Cache**: Redis (optional, for distributed mode)
+- **OS**: Linux, macOS, or Windows
 
 ### Installation
 
 ```bash
-# Clone repository
-cd cabw_enterprise
+# Clone the repository
+git clone https://github.com/Benhubbard9891/CABW.git
+cd CABW
 
-# Install dependencies
+# Install with pip
 pip install -e ".[dev]"
 
 # Or with Poetry
 poetry install
+
+# Install all optional dependencies
+pip install -e ".[all]"
 ```
 
-### Run Demo
+### Running the Demo
 
 ```bash
 # Run comprehensive demo
@@ -86,10 +195,10 @@ asyncio.run(demo_teamwork())
 "
 ```
 
-### Start API Server
+### Starting the API Server
 
 ```bash
-# Development
+# Development (with auto-reload)
 uvicorn src.cabw.api.main:app --reload
 
 # Production
@@ -104,56 +213,65 @@ docker-compose up --build
 
 # Scale workers
 docker-compose up --scale worker=4
+
+# Horizontal scaling with Redis
+docker-compose -f docker-compose.scale.yml up --scale worker=10
 ```
 
-## API Endpoints
+---
 
-### Simulation Management
+## Documentation
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/simulation/create` | Create new simulation |
-| POST | `/simulation/{id}/start` | Start simulation |
-| POST | `/simulation/{id}/pause` | Pause simulation |
-| POST | `/simulation/{id}/resume` | Resume simulation |
-| POST | `/simulation/{id}/stop` | Stop simulation |
-| GET | `/simulation/{id}/state` | Get current state |
+### Architecture
 
-### Agent Management
+```
+CABW/                           # Repository root
+├── src/cabw/                   # Main source code
+│   ├── core/                   # Core agent systems
+│   │   ├── emotions.py             # PAD emotional system with contagion
+│   │   ├── actions.py              # Complex action framework
+│   │   ├── teamwork.py             # Team formation and goals
+│   │   ├── behavior_tree.py        # BT nodes and library
+│   │   ├── world_features.py       # Environment dynamics
+│   │   ├── deliberation.py         # Action deliberation engine
+│   │   └── integrated_agent.py     # Unified agent class
+│   ├── simulation/
+│   │   ├── engine.py               # Enhanced simulation engine
+│   │   └── deterministic.py        # Deterministic replay engine
+│   ├── governance/
+│   │   ├── security.py             # PBAC and audit chain
+│   │   └── enforcement.py          # Constitutional layer
+│   ├── ml/
+│   │   ├── rl_agents.py            # Reinforcement learning
+│   │   ├── behavior_optimization.py # Evolutionary optimization
+│   │   └── nlp_interface.py        # Natural language interface
+│   ├── viz/
+│   │   ├── renderer.py             # Three.js 3D visualization
+│   │   └── dashboard.py            # Real-time dashboard
+│   ├── distributed/
+│   │   └── messenger.py            # Redis pub/sub messaging
+│   ├── economy/
+│   │   └── resources.py            # Economic system
+│   ├── worldgen/
+│   │   └── terrain.py              # Procedural generation
+│   ├── api/
+│   │   ├── main.py                 # FastAPI application
+│   │   ├── auth.py                 # JWT authentication
+│   │   └── routers/
+│   │       ├── simulation.py       # API endpoints
+│   │       └── simulation_secure.py # Authenticated endpoints
+│   └── db/
+│       └── models.py               # Database models
+├── cabw_enterprise/            # Enterprise components
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── tests/                      # Test suite
+├── web/                        # Web frontend
+└── demo_enhanced.py            # Comprehensive demo
+```
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/simulation/{id}/agents` | List all agents |
-| POST | `/simulation/{id}/agents` | Add new agent |
-| GET | `/simulation/{id}/agents/{agent_id}` | Get agent details |
-
-### Teamwork
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/simulation/{id}/teams` | List teams |
-| POST | `/simulation/{id}/teams` | Create team |
-| POST | `/simulation/{id}/teams/goal` | Assign goal |
-
-### Environment Control
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/simulation/{id}/environment` | Environment state |
-| POST | `/simulation/{id}/weather` | Control weather |
-| POST | `/simulation/{id}/events` | Trigger event |
-| GET | `/simulation/{id}/hazards` | List hazards |
-
-### WebSocket Streams
-
-| Endpoint | Description |
-|----------|-------------|
-| `/simulation/{id}/ws` | Real-time simulation updates |
-| `/simulation/{id}/agents/{agent_id}/ws` | Individual agent stream |
-
-## Agent Architecture
-
-### Integrated Agent Components
+#### Integrated Agent Components
 
 ```python
 from src.cabw.core.integrated_agent import IntegratedAgent
@@ -222,9 +340,9 @@ if emotions.trauma_level > 0.7:
     pass
 ```
 
-## Teamwork System
+### Teamwork System
 
-### Team Formation
+#### Team Formation
 
 ```python
 from src.cabw.simulation.engine import EnhancedSimulation
@@ -251,7 +369,7 @@ member = TeamMember(
 team.add_member(member)
 ```
 
-### Shared Goals
+#### Shared Goals
 
 ```python
 from src.cabw.core.teamwork import GoalTemplates
@@ -270,9 +388,9 @@ progress = goal.get_progress()
 rewards = goal.calculate_rewards()
 ```
 
-## Environment System
+### Environment System
 
-### Weather Control
+#### Weather Control
 
 ```python
 from src.cabw.core.world_features import WeatherType
@@ -288,7 +406,7 @@ simulation.environment.weather.intensity = 0.8
 # - Visibility
 ```
 
-### Hazard Management
+#### Hazard Management
 
 ```python
 # Hazards spawn dynamically
@@ -305,9 +423,9 @@ if hazard.get_requires_teamwork():
     pass
 ```
 
-## Security Governance
+### Security Governance
 
-### Policy-Based Access Control
+#### Policy-Based Access Control
 
 ```python
 from src.cabw.governance.security import (
@@ -343,7 +461,7 @@ else:
     print(f"Access denied: {decision.reason}")
 ```
 
-### Audit Logging
+#### Audit Logging
 
 ```python
 # All actions are audited
@@ -362,9 +480,7 @@ audit_record.record_hash      # compute_hash() of this record
 audit_record.compute_hash()   # recompute on-demand for verification
 ```
 
-## Configuration
-
-### Simulation Config
+### Configuration
 
 ```python
 from src.cabw.simulation.engine import SimulationConfig
@@ -391,7 +507,7 @@ config = SimulationConfig(
 )
 ```
 
-## WebSocket Example
+### WebSocket Example
 
 ```javascript
 // Connect to simulation stream
@@ -418,9 +534,75 @@ ws.send(JSON.stringify({
 }));
 ```
 
+---
+
+## API Reference
+
+### Authentication
+
+```bash
+# Login to get JWT token
+curl -X POST http://localhost:8000/simulation/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
+
+# Response: {"access_token": "eyJ...", "token_type": "bearer"}
+```
+
+### Simulation Management
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/simulation/create` | Create new simulation | Yes (CREATE) |
+| POST | `/simulation/{id}/start` | Start simulation | Yes (EXECUTE) |
+| POST | `/simulation/{id}/pause` | Pause simulation | Yes (EXECUTE) |
+| POST | `/simulation/{id}/resume` | Resume simulation | Yes (EXECUTE) |
+| POST | `/simulation/{id}/stop` | Stop simulation | Yes (EXECUTE) |
+| GET | `/simulation/{id}/state` | Get current state | Yes (READ) |
+| POST | `/simulation/{id}/export` | Export simulation state | Yes (READ) |
+| POST | `/simulation/{id}/replay` | Replay from event log | Yes (EXECUTE) |
+| GET | `/simulation/{id}/audit` | Get audit trail | Yes (ADMIN) |
+
+### Agent Management
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/simulation/{id}/agents` | List all agents | Yes (READ) |
+| POST | `/simulation/{id}/agents` | Add new agent | Yes (CREATE) |
+| GET | `/simulation/{id}/agents/{agent_id}` | Get agent details | Yes (READ) |
+| POST | `/simulation/{id}/agents/{agent_id}/action` | Execute agent action | Yes (EXECUTE) |
+
+### Team Management
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/simulation/{id}/teams` | List teams | Yes (READ) |
+| POST | `/simulation/{id}/teams` | Create team | Yes (CREATE) |
+| POST | `/simulation/{id}/teams/goal` | Assign goal | Yes (EXECUTE) |
+
+### Environment Control
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| GET | `/simulation/{id}/environment` | Environment state | Yes (READ) |
+| POST | `/simulation/{id}/weather` | Control weather | Yes (EXECUTE) |
+| POST | `/simulation/{id}/events` | Trigger event | Yes (EXECUTE) |
+| GET | `/simulation/{id}/hazards` | List hazards | Yes (READ) |
+
+### WebSocket Streams
+
+| Endpoint | Description |
+|----------|-------------|
+| `/simulation/{id}/ws` | Real-time simulation updates |
+| `/simulation/{id}/agents/{agent_id}/ws` | Individual agent stream |
+
+---
+
 ## Performance
 
 ### Benchmarks
+
+> Tested on: AMD Ryzen 9 5900X, 32GB RAM, Ubuntu 22.04, Python 3.11
 
 | Metric | Value |
 |--------|-------|
@@ -440,25 +622,33 @@ docker-compose -f docker-compose.scale.yml up --scale worker=10
 # Configure in config.py
 ```
 
+---
+
 ## Testing
 
 ```bash
-# Run tests
+# Run all tests
 pytest tests/ -v
 
-# Coverage
+# Run with coverage
 pytest --cov=src --cov-report=html
+
+# Run specific test categories
+pytest tests/ -v -m unit
+pytest tests/ -v -m integration
+pytest tests/ -v -m e2e
 
 # Load testing
 locust -f tests/load/locustfile.py
 ```
 
+---
+
 ## Monitoring
 
 ### Prometheus Metrics
 
-```python
-# Available metrics
+```
 simulation_agents_total
 simulation_ticks_total
 agent_actions_total
@@ -472,21 +662,20 @@ security_violations_total
 
 Import `monitoring/grafana-dashboard.json` for pre-configured dashboards.
 
-## Development
+---
 
-### Project Structure
+## Known Constraints
 
-```
-cabw_enterprise/
-├── src/cabw/           # Source code
-├── tests/              # Test suite
-├── docs/               # Documentation
-├── docker/             # Container configs
-├── monitoring/         # Observability
-└── scripts/            # Utility scripts
-```
+| Constraint | Details |
+|------------|---------|
+| **Single-threaded Simulation** | Tick performance degrades beyond ~200 agents |
+| **Uniform Time** | Relationship decay assumes uniform time — no subjective time dilation |
+| **Sequential Constraints** | Constitutional constraints evaluate sequentially; interaction effects not modeled |
+| **Memory Cap** | Rehearsal strengthening capped at `Memory.MAX_REHEARSAL_STRENGTH` (default `5.0`) |
 
-### Contributing
+---
+
+## Contributing
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing`)
@@ -494,20 +683,27 @@ cabw_enterprise/
 4. Push to branch (`git push origin feature/amazing`)
 5. Open Pull Request
 
+---
+
 ## License
 
-MIT License - See LICENSE file
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Known Constraints
-
-- Simulation is single-threaded; tick performance degrades beyond ~200 agents
-- Relationship decay assumes uniform time — no support for subjective time dilation
-- Constitutional constraints evaluate sequentially; constraint interaction effects are not modeled
-- Memory rehearsal strengthening is capped at `Memory.MAX_REHEARSAL_STRENGTH` (default `5.0`); adjust for your use case
+---
 
 ## Acknowledgments
 
-- PAD emotional model: Mehrabian & Russell
-- OCEAN personality: Costa & McCrae
-- Behavior Trees: Colledanchise & Ögren
-- Emergent behavior research community
+- **PAD Emotional Model**: Mehrabian & Russell
+- **OCEAN Personality**: Costa & McCrae
+- **Behavior Trees**: Colledanchise & Ögren
+- **Emergent Behavior Research Community**
+
+---
+
+<div align="center">
+
+**[Back to Top](#cabw-enterprise)**
+
+Made with ❤️ by the CABW Development Team
+
+</div>
