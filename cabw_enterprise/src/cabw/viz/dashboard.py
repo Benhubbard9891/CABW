@@ -3,10 +3,9 @@ Real-time Dashboard Server for Simulation Metrics
 """
 
 import asyncio
-from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
-import json
+from typing import Any
 
 
 @dataclass
@@ -22,28 +21,28 @@ class MetricSnapshot:
     avg_health: float
     avg_energy: float
     actions_per_tick: int
-    events: List[str] = field(default_factory=list)
+    events: list[str] = field(default_factory=list)
 
 
 class MetricsCollector:
     """
     Collect and aggregate simulation metrics.
     """
-    
+
     def __init__(self, max_history: int = 1000):
         self.max_history = max_history
-        self.history: List[MetricSnapshot] = []
-        self.current_metrics: Dict[str, Any] = {}
-        
+        self.history: list[MetricSnapshot] = []
+        self.current_metrics: dict[str, Any] = {}
+
         # Counters
         self.total_actions = 0
         self.total_events = 0
         self.start_time = datetime.now()
-    
+
     def collect(self, simulation: Any) -> MetricSnapshot:
         """Collect metrics from simulation."""
         state = simulation.get_state()
-        
+
         # Calculate averages
         agents = state.get('agents', {})
         if agents:
@@ -54,7 +53,7 @@ class MetricsCollector:
             avg_health = 0
             avg_energy = 0
             alive = 0
-        
+
         snapshot = MetricSnapshot(
             timestamp=datetime.now().isoformat(),
             tick=state.get('tick', 0),
@@ -67,14 +66,14 @@ class MetricsCollector:
             avg_energy=avg_energy,
             actions_per_tick=simulation.statistics.get('total_actions', 0) - self.total_actions
         )
-        
+
         self.total_actions = simulation.statistics.get('total_actions', 0)
-        
+
         # Store history
         self.history.append(snapshot)
         if len(self.history) > self.max_history:
             self.history.pop(0)
-        
+
         self.current_metrics = {
             'tick': snapshot.tick,
             'agent_count': snapshot.agent_count,
@@ -83,14 +82,14 @@ class MetricsCollector:
             'avg_energy': snapshot.avg_energy,
             'emotional_climate': snapshot.emotional_climate
         }
-        
+
         return snapshot
-    
+
     def get_time_series(
         self,
         metric_name: str,
         window: int = 100
-    ) -> List[tuple]:
+    ) -> list[tuple]:
         """Get time series data for a metric."""
         data = []
         for snapshot in self.history[-window:]:
@@ -98,14 +97,14 @@ class MetricsCollector:
             if value is not None:
                 data.append((snapshot.tick, value))
         return data
-    
-    def get_summary(self) -> Dict[str, Any]:
+
+    def get_summary(self) -> dict[str, Any]:
         """Get summary statistics."""
         if not self.history:
             return {}
-        
+
         recent = self.history[-100:]
-        
+
         return {
             'simulation_duration': (datetime.now() - self.start_time).total_seconds(),
             'total_ticks': self.history[-1].tick if self.history else 0,
@@ -121,7 +120,7 @@ class DashboardServer:
     """
     WebSocket-based dashboard server for real-time metrics.
     """
-    
+
     def __init__(
         self,
         simulation: Any,
@@ -131,29 +130,29 @@ class DashboardServer:
         self.simulation = simulation
         self.metrics = metrics_collector
         self.update_interval = update_interval
-        
-        self.clients: List[Any] = []
+
+        self.clients: list[Any] = []
         self.running = False
-        self.task: Optional[asyncio.Task] = None
-    
+        self.task: asyncio.Task | None = None
+
     async def start(self):
         """Start dashboard server."""
         self.running = True
         self.task = asyncio.create_task(self._broadcast_loop())
-    
+
     async def stop(self):
         """Stop dashboard server."""
         self.running = False
         if self.task:
             self.task.cancel()
-    
+
     async def _broadcast_loop(self):
         """Broadcast metrics to all connected clients."""
         while self.running:
             try:
                 # Collect metrics
                 snapshot = self.metrics.collect(self.simulation)
-                
+
                 # Broadcast to clients
                 message = {
                     'type': 'metrics_update',
@@ -169,36 +168,36 @@ class DashboardServer:
                         'team_count': snapshot.team_count
                     }
                 }
-                
+
                 await self._broadcast(message)
-                
+
                 await asyncio.sleep(self.update_interval)
-                
+
             except Exception as e:
                 print(f"Dashboard broadcast error: {e}")
                 await asyncio.sleep(self.update_interval)
-    
-    async def _broadcast(self, message: Dict[str, Any]):
+
+    async def _broadcast(self, message: dict[str, Any]):
         """Send message to all connected clients."""
         disconnected = []
-        
+
         for client in self.clients:
             try:
                 await client.send_json(message)
             except Exception:
                 disconnected.append(client)
-        
+
         # Remove disconnected clients
         for client in disconnected:
             self.clients.remove(client)
-    
+
     def add_client(self, client):
         """Add WebSocket client."""
         self.clients.append(client)
-        
+
         # Send initial state
         asyncio.create_task(self._send_initial_state(client))
-    
+
     async def _send_initial_state(self, client):
         """Send initial state to new client."""
         try:
@@ -211,12 +210,12 @@ class DashboardServer:
             })
         except Exception as e:
             print(f"Error sending initial state: {e}")
-    
+
     def remove_client(self, client):
         """Remove WebSocket client."""
         if client in self.clients:
             self.clients.remove(client)
-    
+
     def get_dashboard_html(self) -> str:
         """Generate dashboard HTML."""
         return """<!DOCTYPE html>
@@ -294,7 +293,7 @@ class DashboardServer:
                 <span class="metric-value" id="team-count">-</span>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Agent Health</h3>
             <div class="metric">
@@ -309,7 +308,7 @@ class DashboardServer:
                 <canvas id="health-chart"></canvas>
             </div>
         </div>
-        
+
         <div class="card">
             <h3>Environment</h3>
             <div class="metric">
@@ -326,65 +325,65 @@ class DashboardServer:
             </div>
         </div>
     </div>
-    
+
     <script>
         const ws = new WebSocket(`ws://${window.location.host}/dashboard/ws`);
-        
+
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            
+
             if (data.type === 'metrics_update') {
                 updateMetrics(data.data);
             } else if (data.type === 'initial_state') {
                 updateMetrics(data.data.simulation);
             }
         };
-        
+
         function updateMetrics(data) {
             document.getElementById('tick').textContent = data.tick || '-';
             document.getElementById('agent-count').textContent = data.agent_count || '-';
             document.getElementById('alive-count').textContent = data.alive_count || '-';
             document.getElementById('team-count').textContent = data.team_count || '-';
-            document.getElementById('avg-health').textContent = 
+            document.getElementById('avg-health').textContent =
                 data.avg_health ? data.avg_health.toFixed(1) : '-';
-            document.getElementById('avg-energy').textContent = 
+            document.getElementById('avg-energy').textContent =
                 data.avg_energy ? data.avg_energy.toFixed(1) : '-';
             document.getElementById('weather').textContent = data.weather || '-';
             document.getElementById('hazard-count').textContent = data.hazard_count || '-';
             document.getElementById('climate').textContent = data.emotional_climate || '-';
         }
-        
+
         // Simple chart drawing
         const canvas = document.getElementById('health-chart');
         const ctx = canvas.getContext('2d');
         canvas.width = canvas.offsetWidth;
         canvas.height = canvas.offsetHeight;
-        
+
         const healthHistory = [];
-        
+
         function drawChart() {
             ctx.fillStyle = '#0f0f23';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
+
             if (healthHistory.length < 2) return;
-            
+
             ctx.strokeStyle = '#4CAF50';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            
+
             const stepX = canvas.width / (healthHistory.length - 1);
-            
+
             healthHistory.forEach((value, i) => {
                 const x = i * stepX;
                 const y = canvas.height - (value / 100) * canvas.height;
-                
+
                 if (i === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
-            
+
             ctx.stroke();
         }
-        
+
         setInterval(drawChart, 100);
     </script>
 </body>

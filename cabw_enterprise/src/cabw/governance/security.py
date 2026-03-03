@@ -12,12 +12,11 @@ Implements:
 from __future__ import annotations
 
 import hashlib
-import hmac
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Set, Tuple
-from uuid import UUID, uuid4
+from enum import Enum
+from typing import Any
+from uuid import uuid4
 
 from cabw.utils.logging import get_logger
 
@@ -49,7 +48,7 @@ class Capability(Enum):
     AGENT_UPDATE = "agent:update"
     AGENT_DELETE = "agent:delete"
     AGENT_CONTROL = "agent:control"
-    
+
     # Simulation capabilities
     SIM_CREATE = "sim:create"
     SIM_READ = "sim:read"
@@ -57,18 +56,18 @@ class Capability(Enum):
     SIM_DELETE = "sim:delete"
     SIM_START = "sim:start"
     SIM_STOP = "sim:stop"
-    
+
     # World capabilities
     WORLD_CREATE = "world:create"
     WORLD_READ = "world:read"
     WORLD_UPDATE = "world:update"
     WORLD_DELETE = "world:delete"
-    
+
     # Governance capabilities
     GOV_READ = "gov:read"
     GOV_MODIFY = "gov:modify"
     GOV_AUDIT = "gov:audit"
-    
+
     # Admin capabilities
     ADMIN_USERS = "admin:users"
     ADMIN_SYSTEM = "admin:system"
@@ -91,13 +90,13 @@ class SecurityContext:
     resource_id: str
     action: str
     security_level: SecurityLevel = SecurityLevel.PUBLIC
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    ip_address: str | None = None
+    user_agent: str | None = None
+    session_id: str | None = None
+    request_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary expected by the policy engine."""
         context = {
             'subject_id': self.subject_id,
@@ -117,54 +116,54 @@ class SecurityContext:
 class SecurityPolicy:
     """
     Security policy defining access rules.
-    
+
     Policies are evaluated in order of specificity:
     1. Explicit denials
     2. Explicit allows
     3. Default deny
     """
     id: str = field(default_factory=lambda: str(uuid4()))
-    policy_id: Optional[str] = None
+    policy_id: str | None = None
     name: str = ""
     description: str = ""
-    
+
     # Subject matching
     subject_type: str = "user"  # 'user', 'role', 'group', 'agent'
-    subject_id: Optional[str] = None
-    subject_pattern: Optional[str] = None  # Regex pattern
-    
+    subject_id: str | None = None
+    subject_pattern: str | None = None  # Regex pattern
+
     # Resource matching
     resource_type: str = "*"  # 'agent', 'simulation', 'world', '*'
-    resource_id: Optional[str] = None
-    resource_pattern: Optional[str] = None
-    
+    resource_id: str | None = None
+    resource_pattern: str | None = None
+
     # Action
-    capabilities: Set[Capability] = field(default_factory=set)
-    required_capabilities: List[Capability] = field(default_factory=list)
-    rules: List[Any] = field(default_factory=list)
+    capabilities: set[Capability] = field(default_factory=set)
+    required_capabilities: list[Capability] = field(default_factory=list)
+    rules: list[Any] = field(default_factory=list)
     effect: str = "allow"  # 'allow', 'deny'
-    
+
     # Conditions
-    conditions: Dict[str, Any] = field(default_factory=dict)
-    
+    conditions: dict[str, Any] = field(default_factory=dict)
+
     # Security level required
     min_security_level: SecurityLevel = SecurityLevel.PUBLIC
-    
+
     # Time-based restrictions
-    time_restrictions: Dict[str, Any] = field(default_factory=dict)
-    
+    time_restrictions: dict[str, Any] = field(default_factory=dict)
+
     # Rate limiting
-    rate_limit: Optional[int] = None  # Requests per minute
-    
+    rate_limit: int | None = None  # Requests per minute
+
     # Audit settings
     audit_on_access: bool = True
     audit_on_deny: bool = True
-    
+
     # Metadata
     priority: int = 100  # Lower = evaluated first
     is_active: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
     def __post_init__(self) -> None:
         """Backfill compatibility fields used across the codebase."""
@@ -172,38 +171,38 @@ class SecurityPolicy:
             self.id = self.policy_id
         if self.required_capabilities and not self.capabilities:
             self.capabilities = set(self.required_capabilities)
-    
-    def matches_subject(self, subject: Dict[str, Any]) -> bool:
+
+    def matches_subject(self, subject: dict[str, Any]) -> bool:
         """Check if policy matches subject."""
         if self.subject_type != subject.get('type', 'user'):
             return False
-        
+
         if self.subject_id and self.subject_id != subject.get('id'):
             return False
-        
+
         if self.subject_pattern:
             import re
             if not re.match(self.subject_pattern, subject.get('id', '')):
                 return False
-        
+
         return True
-    
-    def matches_resource(self, resource: Dict[str, Any]) -> bool:
+
+    def matches_resource(self, resource: dict[str, Any]) -> bool:
         """Check if policy matches resource."""
         if self.resource_type != "*" and self.resource_type != resource.get('type'):
             return False
-        
+
         if self.resource_id and self.resource_id != resource.get('id'):
             return False
-        
+
         if self.resource_pattern:
             import re
             if not re.match(self.resource_pattern, resource.get('id', '')):
                 return False
-        
+
         return True
-    
-    def check_conditions(self, context: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+
+    def check_conditions(self, context: dict[str, Any]) -> tuple[bool, str | None]:
         """Check if conditions are met."""
         # Time restrictions
         if self.time_restrictions:
@@ -211,24 +210,24 @@ class SecurityPolicy:
             allowed_hours = self.time_restrictions.get('hours')
             if allowed_hours and now.hour not in allowed_hours:
                 return False, "Access denied: outside allowed hours"
-            
+
             allowed_days = self.time_restrictions.get('days')
             if allowed_days and now.weekday() not in allowed_days:
                 return False, "Access denied: outside allowed days"
-        
+
         # Security level
         subject_level = context.get('security_level', SecurityLevel.PUBLIC)
         if subject_level.value < self.min_security_level.value:
             return False, f"Insufficient security clearance (need {self.min_security_level.name})"
-        
+
         # Custom conditions
         for key, expected in self.conditions.items():
             actual = context.get(key)
             if actual != expected:
                 return False, f"Condition not met: {key}"
-        
+
         return True, None
-    
+
     def is_expired(self) -> bool:
         """Check if policy has expired."""
         if self.expires_at:
@@ -241,12 +240,12 @@ class AccessDecision:
     """Result of an access control decision."""
     granted: bool
     decision_id: str = field(default_factory=lambda: str(uuid4()))
-    policy_id: Optional[str] = None
-    reason: Optional[str] = None
+    policy_id: str | None = None
+    reason: str | None = None
     security_level: SecurityLevel = SecurityLevel.PUBLIC
-    audit_log_id: Optional[str] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    audit_log_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             'granted': self.granted,
@@ -262,39 +261,39 @@ class AuditRecord:
     """Security audit record."""
     id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    
+
     # Subject
     subject_type: str = ""
     subject_id: str = ""
-    subject_name: Optional[str] = None
-    
+    subject_name: str | None = None
+
     # Action
     action: str = ""  # 'access', 'modify', 'delete', 'create'
-    capability: Optional[str] = None
-    
+    capability: str | None = None
+
     # Resource
     resource_type: str = ""
     resource_id: str = ""
-    resource_name: Optional[str] = None
-    
+    resource_name: str | None = None
+
     # Decision
     decision: str = ""  # 'allow', 'deny', 'error'
-    decision_reason: Optional[str] = None
-    policy_id: Optional[str] = None
-    
+    decision_reason: str | None = None
+    policy_id: str | None = None
+
     # Context
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-    session_id: Optional[str] = None
-    request_id: Optional[str] = None
-    
+    ip_address: str | None = None
+    user_agent: str | None = None
+    session_id: str | None = None
+    request_id: str | None = None
+
     # Security
     security_level: SecurityLevel = SecurityLevel.PUBLIC
     threat_level: ThreatLevel = ThreatLevel.NONE
-    
+
     # Additional data
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def compute_hash(self) -> str:
         """Compute tamper-evident hash of record."""
         data = f"{self.id}:{self.timestamp.isoformat()}:{self.subject_id}:{self.action}:{self.resource_id}"
@@ -304,31 +303,31 @@ class AuditRecord:
 class SecurityGovernor:
     """
     Central security governor implementing capability-based access control.
-    
+
     Security-first design:
     - Default deny: All access denied unless explicitly allowed
     - Principle of least privilege: Minimum capabilities granted
     - Defense in depth: Multiple security layers
     - Audit everything: All access attempts logged
     """
-    
+
     def __init__(self):
         """Initialize security governor."""
-        self.policies: List[SecurityPolicy] = []
-        self.audit_log: List[AuditRecord] = []
-        self.rate_counters: Dict[str, List[datetime]] = {}
-        
+        self.policies: list[SecurityPolicy] = []
+        self.audit_log: list[AuditRecord] = []
+        self.rate_counters: dict[str, list[datetime]] = {}
+
         # Threat detection
-        self.threat_indicators: Dict[str, Any] = {}
-        self.blocked_subjects: Set[str] = set()
-        
+        self.threat_indicators: dict[str, Any] = {}
+        self.blocked_subjects: set[str] = set()
+
         # Subject clearance registry (NOT stored on agent objects)
         # This prevents self-escalation attacks
-        self._subject_clearances: Dict[str, SecurityLevel] = {}
-        
+        self._subject_clearances: dict[str, SecurityLevel] = {}
+
         # Initialize default policies
         self._init_default_policies()
-    
+
     def _init_default_policies(self) -> None:
         """Initialize default security policies."""
         # Default deny all
@@ -340,7 +339,7 @@ class SecurityGovernor:
             effect="deny",
             priority=9999,
         ))
-        
+
         # Admin full access
         self.policies.append(SecurityPolicy(
             name="Admin Full Access",
@@ -353,7 +352,7 @@ class SecurityGovernor:
             min_security_level=SecurityLevel.INTERNAL,
             priority=10,
         ))
-        
+
         # Operator simulation access
         self.policies.append(SecurityPolicy(
             name="Operator Simulation Access",
@@ -372,7 +371,7 @@ class SecurityGovernor:
             min_security_level=SecurityLevel.INTERNAL,
             priority=20,
         ))
-        
+
         # Viewer read-only
         self.policies.append(SecurityPolicy(
             name="Viewer Read-Only",
@@ -390,17 +389,17 @@ class SecurityGovernor:
             min_security_level=SecurityLevel.PUBLIC,
             priority=30,
         ))
-    
+
     def evaluate_access(
         self,
         subject: Any,
         resource: Any,
         capability: Capability,
-        context: Optional[Any] = None
-    ) -> Tuple[bool, Optional[str]]:
+        context: Any | None = None
+    ) -> tuple[bool, str | None]:
         """
         Evaluate access request.
-        
+
         Implements security-first evaluation:
         1. Check if subject is blocked
         2. Check rate limits
@@ -411,7 +410,7 @@ class SecurityGovernor:
         resource_dict = self._normalize_resource(resource)
         context_dict = self._normalize_context(context)
         subject_id = subject_dict.get('id', 'unknown')
-        
+
         # Check if subject is blocked
         if subject_id in self.blocked_subjects:
             decision = AccessDecision(
@@ -420,7 +419,7 @@ class SecurityGovernor:
             )
             self._audit(subject_dict, resource_dict, capability, decision, context_dict)
             return decision.granted, decision.reason
-        
+
         # Check rate limits
         if not self._check_rate_limit(subject_id):
             decision = AccessDecision(
@@ -429,30 +428,29 @@ class SecurityGovernor:
             )
             self._audit(subject_dict, resource_dict, capability, decision, context_dict)
             return decision.granted, decision.reason
-        
+
         # Evaluate policies (sorted by priority)
         sorted_policies = sorted(self.policies, key=lambda p: p.priority)
-        
+
         for policy in sorted_policies:
             if not policy.is_active or policy.is_expired():
                 continue
-            
+
             if not policy.matches_subject(subject_dict):
                 continue
-            
+
             if not policy.matches_resource(resource_dict):
                 continue
-            
+
             if capability not in policy.capabilities and policy.capabilities:
                 continue
-            
+
             # Check conditions
             conditions_met, reason = policy.check_conditions(context_dict)
-            if not conditions_met:
-                if policy.effect == "allow":
-                    # Conditions not met for allow policy
-                    continue
-            
+            if not conditions_met and policy.effect == "allow":
+                # Conditions not met for allow policy
+                continue
+
             # Policy matches - apply effect
             if policy.effect == "deny":
                 decision = AccessDecision(
@@ -462,7 +460,7 @@ class SecurityGovernor:
                 )
                 self._audit(subject_dict, resource_dict, capability, decision, context_dict)
                 return decision.granted, decision.reason
-            
+
             elif policy.effect == "allow":
                 decision = AccessDecision(
                     granted=True,
@@ -471,7 +469,7 @@ class SecurityGovernor:
                 )
                 self._audit(subject_dict, resource_dict, capability, decision, context_dict)
                 return decision.granted, decision.reason
-        
+
         # No matching policy - default deny
         decision = AccessDecision(
             granted=False,
@@ -480,7 +478,7 @@ class SecurityGovernor:
         self._audit(subject_dict, resource_dict, capability, decision, context_dict)
         return decision.granted, decision.reason
 
-    def _normalize_subject(self, subject: Any) -> Dict[str, Any]:
+    def _normalize_subject(self, subject: Any) -> dict[str, Any]:
         """Normalize dict/object subjects into policy subject format."""
         if isinstance(subject, dict):
             return {
@@ -497,7 +495,7 @@ class SecurityGovernor:
             'claims': {},
         }
 
-    def _normalize_resource(self, resource: Any) -> Dict[str, Any]:
+    def _normalize_resource(self, resource: Any) -> dict[str, Any]:
         """Normalize dict/object resources into policy resource format."""
         if isinstance(resource, dict):
             return {
@@ -514,7 +512,7 @@ class SecurityGovernor:
             'sensitive': False,
         }
 
-    def _normalize_context(self, context: Optional[Any]) -> Dict[str, Any]:
+    def _normalize_context(self, context: Any | None) -> dict[str, Any]:
         """Normalize SecurityContext/dict context to dictionary."""
         if context is None:
             return {}
@@ -523,29 +521,29 @@ class SecurityGovernor:
         if isinstance(context, dict):
             return context
         return {'action': getattr(context, 'action', 'access')}
-    
+
     def _check_rate_limit(self, subject_id: str) -> bool:
         """Check if subject has exceeded rate limit."""
         now = datetime.utcnow()
         window = timedelta(minutes=1)
-        
+
         # Get recent requests
         requests = self.rate_counters.get(subject_id, [])
         recent = [r for r in requests if now - r < window]
-        
+
         # Update counter
         self.rate_counters[subject_id] = recent
-        
+
         # Check limit (default 100 req/min)
         return len(recent) < 100
-    
+
     def _audit(
         self,
-        subject: Dict[str, Any],
-        resource: Dict[str, Any],
+        subject: dict[str, Any],
+        resource: dict[str, Any],
         capability: Capability,
         decision: AccessDecision,
-        context: Dict[str, Any]
+        context: dict[str, Any]
     ) -> None:
         """Create audit record."""
         record = AuditRecord(
@@ -571,29 +569,29 @@ class SecurityGovernor:
                 'additional_claims': subject.get('claims', {}),
             }
         )
-        
+
         self.audit_log.append(record)
         decision.audit_log_id = record.id
-        
+
         # Log security events
         if not decision.granted:
             logger.warning(
                 f"Access denied: {subject.get('id')} -> {resource.get('id')} "
                 f"({capability.value}): {decision.reason}"
             )
-        
+
         # Threat detection
         self._update_threat_detection(subject, resource, decision, context)
-    
+
     def _assess_threat_level(
         self,
-        subject: Dict[str, Any],
-        resource: Dict[str, Any],
-        context: Dict[str, Any]
+        subject: dict[str, Any],
+        resource: dict[str, Any],
+        context: dict[str, Any]
     ) -> ThreatLevel:
         """Assess threat level of access attempt."""
         indicators = 0
-        
+
         # Multiple failed attempts
         subject_id = subject.get('id', 'unknown')
         recent_denials = sum(
@@ -604,15 +602,15 @@ class SecurityGovernor:
             indicators += 2
         elif recent_denials > 5:
             indicators += 1
-        
+
         # Unusual access patterns
         if context.get('unusual_time', False):
             indicators += 1
-        
+
         # High-value resource access
         if resource.get('sensitive', False):
             indicators += 1
-        
+
         # Determine threat level
         if indicators >= 4:
             return ThreatLevel.CRITICAL
@@ -622,19 +620,19 @@ class SecurityGovernor:
             return ThreatLevel.MEDIUM
         elif indicators >= 1:
             return ThreatLevel.LOW
-        
+
         return ThreatLevel.NONE
-    
+
     def _update_threat_detection(
         self,
-        subject: Dict[str, Any],
-        resource: Dict[str, Any],
+        subject: dict[str, Any],
+        resource: dict[str, Any],
         decision: AccessDecision,
-        context: Dict[str, Any]
+        context: dict[str, Any]
     ) -> None:
         """Update threat detection indicators."""
         subject_id = subject.get('id', 'unknown')
-        
+
         # Track failed attempts
         if not decision.granted:
             if subject_id not in self.threat_indicators:
@@ -643,17 +641,17 @@ class SecurityGovernor:
                     'first_failure': datetime.utcnow(),
                     'resources_attempted': set(),
                 }
-            
+
             self.threat_indicators[subject_id]['failed_attempts'] += 1
             self.threat_indicators[subject_id]['resources_attempted'].add(
                 resource.get('id', 'unknown')
             )
-            
+
             # Auto-block on too many failures
             if self.threat_indicators[subject_id]['failed_attempts'] > 20:
                 self.blocked_subjects.add(subject_id)
                 logger.critical(f"Subject {subject_id} auto-blocked due to excessive failures")
-    
+
     def add_policy(self, policy: SecurityPolicy) -> None:
         """Add a new security policy."""
         self.policies.append(policy)
@@ -663,7 +661,7 @@ class SecurityGovernor:
         """Compatibility wrapper for legacy policy registration."""
         policy.id = policy_id
         self.add_policy(policy)
-    
+
     def remove_policy(self, policy_id: str) -> bool:
         """Remove a security policy."""
         for i, policy in enumerate(self.policies):
@@ -672,7 +670,7 @@ class SecurityGovernor:
                 logger.info(f"Security policy removed: {policy_id}")
                 return True
         return False
-    
+
     def unblock_subject(self, subject_id: str) -> bool:
         """Manually unblock a subject."""
         if subject_id in self.blocked_subjects:
@@ -681,7 +679,7 @@ class SecurityGovernor:
             logger.info(f"Subject {subject_id} unblocked")
             return True
         return False
-    
+
     def set_clearance(self, subject_id: str, level: SecurityLevel) -> None:
         """
         Set security clearance for a subject.
@@ -690,7 +688,7 @@ class SecurityGovernor:
         """
         self._subject_clearances[subject_id] = level
         logger.info(f"Security clearance set: {subject_id} -> {level.name}")
-    
+
     def get_clearance(self, subject_id: str) -> SecurityLevel:
         """
         Get security clearance for a subject.
@@ -698,7 +696,7 @@ class SecurityGovernor:
         Default: PUBLIC
         """
         return self._subject_clearances.get(subject_id, SecurityLevel.PUBLIC)
-    
+
     def revoke_clearance(self, subject_id: str) -> bool:
         """Revoke security clearance for a subject."""
         if subject_id in self._subject_clearances:
@@ -706,45 +704,45 @@ class SecurityGovernor:
             logger.info(f"Security clearance revoked: {subject_id}")
             return True
         return False
-    
+
     def get_audit_log(
         self,
-        subject_id: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        subject_id: str | None = None,
+        resource_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100
-    ) -> List[AuditRecord]:
+    ) -> list[AuditRecord]:
         """Query audit log."""
         results = self.audit_log
-        
+
         if subject_id:
             results = [r for r in results if r.subject_id == subject_id]
-        
+
         if resource_id:
             results = [r for r in results if r.resource_id == resource_id]
-        
+
         if start_time:
             results = [r for r in results if r.timestamp >= start_time]
-        
+
         if end_time:
             results = [r for r in results if r.timestamp <= end_time]
-        
+
         return results[-limit:]
-    
-    def get_security_report(self) -> Dict[str, Any]:
+
+    def get_security_report(self) -> dict[str, Any]:
         """Generate security status report."""
         recent_audits = self.audit_log[-1000:]
-        
+
         total_access = len(recent_audits)
         allowed = sum(1 for r in recent_audits if r.decision == 'allow')
         denied = sum(1 for r in recent_audits if r.decision == 'deny')
-        
+
         threat_counts = {}
         for r in recent_audits:
             level = r.threat_level.name
             threat_counts[level] = threat_counts.get(level, 0) + 1
-        
+
         return {
             'total_policies': len(self.policies),
             'active_policies': sum(1 for p in self.policies if p.is_active),

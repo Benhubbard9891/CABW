@@ -9,9 +9,13 @@ Covers:
 - DeterministicSimulation
 """
 import pytest
+
 from cabw.simulation.deterministic import (
-    SimulationEvent, SimulationSeed, SeededRandom,
-    EventQueue, DeterministicSimulation, EventType
+    DeterministicSimulation,
+    EventQueue,
+    EventType,
+    SeededRandom,
+    SimulationEvent,
 )
 
 

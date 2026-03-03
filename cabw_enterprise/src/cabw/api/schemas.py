@@ -1,7 +1,7 @@
 """Pydantic schemas for API requests and responses."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -19,7 +19,7 @@ class UserCreate(BaseSchema):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=100)
     password: str = Field(..., min_length=8)
-    full_name: Optional[str] = None
+    full_name: str | None = None
 
 
 class UserResponse(BaseSchema):
@@ -27,18 +27,18 @@ class UserResponse(BaseSchema):
     id: UUID
     email: EmailStr
     username: str
-    full_name: Optional[str]
+    full_name: str | None
     role: str
     is_active: bool
     is_verified: bool
     created_at: datetime
-    last_login: Optional[datetime]
+    last_login: datetime | None
 
 
 class UserUpdate(BaseSchema):
     """User update schema."""
-    full_name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    full_name: str | None = None
+    email: EmailStr | None = None
 
 
 # Token schemas
@@ -51,28 +51,28 @@ class Token(BaseSchema):
 
 class TokenData(BaseSchema):
     """Token data schema."""
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
 
 # World schemas
 class WorldCreate(BaseSchema):
     """World creation schema."""
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    description: str | None = None
     width: int = Field(default=10, ge=1, le=1000)
     height: int = Field(default=10, ge=1, le=1000)
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class WorldResponse(BaseSchema):
     """World response schema."""
     id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     version: str
     width: int
     height: int
-    config: Dict[str, Any]
+    config: dict[str, Any]
     is_template: bool
     created_at: datetime
     updated_at: datetime
@@ -86,19 +86,19 @@ class ZoneResponse(BaseSchema):
     terrain: str
     cover: float
     visibility: float
-    hazard_type: Optional[str]
+    hazard_type: str | None
     hazard_severity: float
-    properties: Dict[str, Any]
+    properties: dict[str, Any]
 
 
 class WorldObjectResponse(BaseSchema):
     """World object response schema."""
     id: UUID
     object_type: str
-    name: Optional[str]
+    name: str | None
     is_interactable: bool
-    tags: List[str]
-    properties: Dict[str, Any]
+    tags: list[str]
+    properties: dict[str, Any]
 
 
 # Simulation schemas
@@ -106,36 +106,36 @@ class SimulationCreate(BaseSchema):
     """Simulation creation schema."""
     world_id: UUID
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    tick_rate: Optional[float] = Field(default=None, ge=0.1, le=60)
-    max_ticks: Optional[int] = Field(default=None, ge=1, le=1000000)
-    config: Dict[str, Any] = Field(default_factory=dict)
+    description: str | None = None
+    tick_rate: float | None = Field(default=None, ge=0.1, le=60)
+    max_ticks: int | None = Field(default=None, ge=1, le=1000000)
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class SimulationUpdate(BaseSchema):
     """Simulation update schema."""
-    name: Optional[str] = None
-    description: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
 
 
 class SimulationResponse(BaseSchema):
     """Simulation response schema."""
     id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     status: str
     world_id: UUID
     tick_rate: float
     max_ticks: int
     current_tick: int
-    config: Dict[str, Any]
-    started_at: Optional[datetime]
-    completed_at: Optional[datetime]
+    config: dict[str, Any]
+    started_at: datetime | None
+    completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
-    results: Optional[Dict[str, Any]]
-    error_message: Optional[str]
+    results: dict[str, Any] | None
+    error_message: str | None
 
 
 class SimulationEventResponse(BaseSchema):
@@ -143,9 +143,9 @@ class SimulationEventResponse(BaseSchema):
     id: UUID
     tick: int
     event_type: str
-    source_id: Optional[UUID]
-    target_id: Optional[UUID]
-    data: Dict[str, Any]
+    source_id: UUID | None
+    target_id: UUID | None
+    data: dict[str, Any]
     priority: int
     created_at: datetime
 
@@ -155,12 +155,12 @@ class AgentActionResponse(BaseSchema):
     id: UUID
     tick: int
     action_type: str
-    target_id: Optional[UUID]
-    target_zone_id: Optional[UUID]
-    params: Dict[str, Any]
+    target_id: UUID | None
+    target_zone_id: UUID | None
+    params: dict[str, Any]
     cost: float
     approved: bool
-    outcome: Optional[Dict[str, Any]]
+    outcome: dict[str, Any] | None
     created_at: datetime
 
 
@@ -169,15 +169,15 @@ class AgentCreate(BaseSchema):
     """Agent creation schema."""
     name: str = Field(..., min_length=1, max_length=255)
     agent_type: str = Field(default="npc")
-    zone_id: Optional[UUID] = None
-    
+    zone_id: UUID | None = None
+
     # OCEAN personality
     openness: float = Field(default=0.5, ge=0, le=1)
     conscientiousness: float = Field(default=0.5, ge=0, le=1)
     extraversion: float = Field(default=0.5, ge=0, le=1)
     agreeableness: float = Field(default=0.5, ge=0, le=1)
     neuroticism: float = Field(default=0.5, ge=0, le=1)
-    
+
     # PAD emotion
     pleasure: float = Field(default=0, ge=-1, le=1)
     arousal: float = Field(default=0, ge=-1, le=1)
@@ -190,43 +190,43 @@ class AgentResponse(BaseSchema):
     name: str
     agent_type: str
     status: str
-    zone_id: Optional[UUID]
-    
+    zone_id: UUID | None
+
     # Vitals
     hp: float
     max_hp: float
     stamina: float
     max_stamina: float
     action_points: float
-    
+
     # OCEAN
     openness: float
     conscientiousness: float
     extraversion: float
     agreeableness: float
     neuroticism: float
-    
+
     # PAD
     pleasure: float
     arousal: float
     dominance: float
-    
+
     # State
-    inventory: List[str]
-    goals: List[str]
-    current_goal: Optional[str]
-    
+    inventory: list[str]
+    goals: list[str]
+    current_goal: str | None
+
     created_at: datetime
     updated_at: datetime
 
 
 class AgentUpdate(BaseSchema):
     """Agent update schema."""
-    name: Optional[str] = None
-    status: Optional[str] = None
-    zone_id: Optional[UUID] = None
-    hp: Optional[float] = Field(default=None, ge=0, le=1)
-    stamina: Optional[float] = Field(default=None, ge=0, le=1)
+    name: str | None = None
+    status: str | None = None
+    zone_id: UUID | None = None
+    hp: float | None = Field(default=None, ge=0, le=1)
+    stamina: float | None = Field(default=None, ge=0, le=1)
 
 
 class MemoryResponse(BaseSchema):
@@ -237,7 +237,7 @@ class MemoryResponse(BaseSchema):
     emotional_salience: float
     strength: float
     rehearsal_count: int
-    participants: List[str]
+    participants: list[str]
     is_forgotten: bool
     created_at: datetime
 
@@ -266,19 +266,19 @@ class RelationshipResponse(BaseSchema):
 class ConstitutionCreate(BaseSchema):
     """Constitution creation schema."""
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    description: str | None = None
     version: str = Field(default="1.0.0")
-    rules: List[Dict[str, Any]] = Field(default_factory=list)
+    rules: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ConstitutionResponse(BaseSchema):
     """Constitution response schema."""
     id: UUID
     name: str
-    description: Optional[str]
+    description: str | None
     version: str
     is_active: bool
-    rules: List[Dict[str, Any]]
+    rules: list[dict[str, Any]]
     created_at: datetime
     updated_at: datetime
 
@@ -286,7 +286,7 @@ class ConstitutionResponse(BaseSchema):
 # Pagination
 class PaginatedResponse(BaseSchema):
     """Paginated response schema."""
-    items: List[Any]
+    items: list[Any]
     total: int
     skip: int
     limit: int
@@ -298,4 +298,4 @@ class ErrorResponse(BaseSchema):
     """Error response schema."""
     error: str
     message: str
-    details: Optional[Dict[str, Any]] = None
+    details: dict[str, Any] | None = None

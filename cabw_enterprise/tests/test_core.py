@@ -11,11 +11,11 @@ Covers:
 - Memory DB model (rehearsal strengthening cap)
 """
 import pytest
-from cabw.core.integrated_agent import IntegratedAgent, AgentMemory, AgentNeeds, AgentStats
-from cabw.core.emotions import EmotionalState, EmotionType, MoodState, EmotionalContagion
-from cabw.core.teamwork import Team, TeamRole, SharedGoal, GoalStatus, GoalObjective, TeamManager
-from cabw.db.models import Memory
 
+from cabw.core.emotions import EmotionalContagion, EmotionalState, EmotionType, MoodState
+from cabw.core.integrated_agent import AgentMemory, AgentNeeds, AgentStats, IntegratedAgent
+from cabw.core.teamwork import GoalObjective, GoalStatus, SharedGoal, Team, TeamManager, TeamRole
+from cabw.db.models import Memory
 
 # ============================================================
 # AgentMemory

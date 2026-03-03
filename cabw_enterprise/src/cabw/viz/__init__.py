@@ -6,9 +6,9 @@ Visualization Module for CABW Enterprise
 - exporter: Export simulation state for visualization
 """
 
-from .renderer import ThreeJSRenderer, VizConfig
 from .dashboard import DashboardServer, MetricsCollector
 from .exporter import VizExporter
+from .renderer import ThreeJSRenderer, VizConfig
 
 __all__ = [
     'ThreeJSRenderer',

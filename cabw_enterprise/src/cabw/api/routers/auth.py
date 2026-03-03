@@ -1,7 +1,6 @@
 """Authentication router."""
 
 from datetime import datetime, timedelta
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -64,7 +63,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(
             token,
@@ -75,17 +74,17 @@ async def get_current_user(
         if user_id is None:
             raise credentials_exception
         token_data = TokenData(user_id=user_id)
-    except JWTError:
-        raise credentials_exception
-    
+    except JWTError as err:
+        raise credentials_exception from err
+
     result = await session.execute(
         select(User).where(User.id == token_data.user_id)
     )
     user = result.scalar_one_or_none()
-    
+
     if user is None:
         raise credentials_exception
-    
+
     return user
 
 
@@ -113,7 +112,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
         )
-    
+
     # Check if username exists
     result = await session.execute(
         select(User).where(User.username == user_data.username)
@@ -123,7 +122,7 @@ async def register(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already taken"
         )
-    
+
     # Create user
     user = User(
         email=user_data.email,
@@ -131,11 +130,11 @@ async def register(
         hashed_password=get_password_hash(user_data.password),
         full_name=user_data.full_name
     )
-    
+
     session.add(user)
     await session.commit()
     await session.refresh(user)
-    
+
     logger.info(f"User registered: {user.username}")
     return user
 
@@ -153,33 +152,33 @@ async def login(
         )
     )
     user = result.scalar_one_or_none()
-    
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
-    
+
     # Update last login
     user.last_login = datetime.utcnow()
     await session.commit()
-    
+
     # Create token
     access_token_expires = timedelta(minutes=settings.auth.access_token_expire_minutes)
     access_token = create_access_token(
         data={"sub": str(user.id)},
         expires_delta=access_token_expires
     )
-    
+
     logger.info(f"User logged in: {user.username}")
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -203,7 +202,7 @@ async def refresh_token(
         data={"sub": str(current_user.id)},
         expires_delta=access_token_expires
     )
-    
+
     return {
         "access_token": access_token,
         "token_type": "bearer",

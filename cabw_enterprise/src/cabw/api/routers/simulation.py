@@ -9,51 +9,47 @@ Exposes all advanced simulation capabilities:
 - Real-time WebSocket updates
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse, FileResponse
-from pydantic import BaseModel, Field
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 import asyncio
-import json
 import os
+from datetime import datetime
+from typing import Any
 
+from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
+
+from ...core.world_features import WeatherType
 from ...simulation.engine import EnhancedSimulation, SimulationConfig
-from ...core.integrated_agent import IntegratedAgent
-from ...core.teamwork import TeamRole
-from ...core.world_features import WeatherType, HazardType
-from ...governance.security import SecurityGovernor
-
 
 router = APIRouter(prefix="/simulation", tags=["simulation"])
 
 # Active simulations store
-active_simulations: Dict[str, EnhancedSimulation] = {}
-simulation_tasks: Dict[str, asyncio.Task] = {}
+active_simulations: dict[str, EnhancedSimulation] = {}
+simulation_tasks: dict[str, asyncio.Task] = {}
 
 
 # ============== Pydantic Models ==============
 
 class AgentCreateRequest(BaseModel):
     name: str = Field(..., description="Agent name")
-    ocean_traits: Optional[Dict[str, float]] = Field(
+    ocean_traits: dict[str, float] | None = Field(
         None,
         description="OCEAN personality traits (0.0-1.0)"
     )
-    location: Optional[tuple] = Field(None, description="Initial location (x, y)")
+    location: tuple | None = Field(None, description="Initial location (x, y)")
     behavior_tree: str = Field("agent_ai", description="Behavior tree type")
 
 
 class TeamCreateRequest(BaseModel):
     name: str = Field(..., description="Team name")
     description: str = Field("", description="Team description")
-    member_ids: List[str] = Field(default_factory=list, description="Initial member IDs")
+    member_ids: list[str] = Field(default_factory=list, description="Initial member IDs")
 
 
 class GoalAssignRequest(BaseModel):
     team_id: str = Field(..., description="Target team ID")
     goal_type: str = Field(..., description="Goal type (exploration, resource_gathering, defense, etc.)")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Goal parameters")
+    params: dict[str, Any] = Field(default_factory=dict, description="Goal parameters")
 
 
 class WeatherControlRequest(BaseModel):
@@ -63,7 +59,7 @@ class WeatherControlRequest(BaseModel):
 
 class EventTriggerRequest(BaseModel):
     event_type: str = Field(..., description="Event type to trigger")
-    params: Dict[str, Any] = Field(default_factory=dict, description="Event parameters")
+    params: dict[str, Any] = Field(default_factory=dict, description="Event parameters")
 
 
 class SimulationConfigRequest(BaseModel):
@@ -79,11 +75,11 @@ class SimulationConfigRequest(BaseModel):
 
 # ============== HTTP Routes ==============
 
-@router.post("/create", response_model=Dict[str, str])
+@router.post("/create", response_model=dict[str, str])
 async def create_simulation(config: SimulationConfigRequest):
     """Create a new simulation instance."""
     sim_id = f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
+
     sim_config = SimulationConfig(
         world_size=config.world_size,
         num_agents=config.num_agents,
@@ -94,12 +90,12 @@ async def create_simulation(config: SimulationConfigRequest):
         weather_enabled=config.weather_enabled,
         hazards_enabled=config.hazards_enabled
     )
-    
+
     simulation = EnhancedSimulation(sim_config)
     simulation.initialize()
-    
+
     active_simulations[sim_id] = simulation
-    
+
     return {
         "simulation_id": sim_id,
         "status": "created",
@@ -112,16 +108,16 @@ async def start_simulation(sim_id: str, background_tasks: BackgroundTasks):
     """Start a simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     if simulation.running:
         raise HTTPException(status_code=400, detail="Simulation already running")
-    
+
     # Start in background
     task = asyncio.create_task(simulation.run())
     simulation_tasks[sim_id] = task
-    
+
     return {"status": "started", "simulation_id": sim_id}
 
 
@@ -130,10 +126,10 @@ async def pause_simulation(sim_id: str):
     """Pause a running simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     simulation.pause()
-    
+
     return {"status": "paused", "tick": simulation.tick_count}
 
 
@@ -142,10 +138,10 @@ async def resume_simulation(sim_id: str):
     """Resume a paused simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     simulation.resume()
-    
+
     return {"status": "resumed", "tick": simulation.tick_count}
 
 
@@ -154,15 +150,15 @@ async def stop_simulation(sim_id: str):
     """Stop a simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     simulation.stop()
-    
+
     # Cancel task
     if sim_id in simulation_tasks:
         simulation_tasks[sim_id].cancel()
         del simulation_tasks[sim_id]
-    
+
     return {"status": "stopped", "tick": simulation.tick_count}
 
 
@@ -171,7 +167,7 @@ async def get_simulation_state(sim_id: str):
     """Get current simulation state."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     return simulation.get_state()
 
@@ -181,7 +177,7 @@ async def list_agents(sim_id: str):
     """List all agents in simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     return {
         "agents": [
@@ -204,16 +200,16 @@ async def add_agent(sim_id: str, request: AgentCreateRequest):
     """Add a new agent to simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     agent = simulation.add_agent(
         name=request.name,
         ocean_traits=request.ocean_traits,
         location=request.location,
         behavior_tree=request.behavior_tree
     )
-    
+
     return {
         "agent_id": agent.agent_id,
         "name": agent.name,
@@ -227,13 +223,13 @@ async def get_agent_details(sim_id: str, agent_id: str):
     """Get detailed agent information."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     agent = simulation.agents.get(agent_id)
-    
+
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
+
     return agent.get_state_summary()
 
 
@@ -242,9 +238,9 @@ async def list_teams(sim_id: str):
     """List all teams in simulation."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     return {
         "teams": [
             {
@@ -265,11 +261,11 @@ async def create_team(sim_id: str, request: TeamCreateRequest):
     """Create a new team."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     team = simulation.team_manager.create_team(request.name, request.description)
-    
+
     # Add members
     for agent_id in request.member_ids:
         agent = simulation.agents.get(agent_id)
@@ -278,7 +274,7 @@ async def create_team(sim_id: str, request: TeamCreateRequest):
             role = TeamRole.LEADER if not team.members else TeamRole.MEMBER
             team.add_member(agent_id, role)
             agent.current_team = team
-    
+
     return {
         "team_id": team.id,
         "name": team.name,
@@ -291,18 +287,18 @@ async def assign_team_goal(sim_id: str, request: GoalAssignRequest):
     """Assign a goal to a team."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     goal = simulation.create_team_goal(
         team_id=request.team_id,
         goal_type=request.goal_type,
         **request.params
     )
-    
+
     if not goal:
         raise HTTPException(status_code=400, detail="Failed to assign goal")
-    
+
     return {
         "goal_id": goal.id,
         "team_id": request.team_id,
@@ -316,14 +312,14 @@ async def control_weather(sim_id: str, request: WeatherControlRequest):
     """Control simulation weather."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     try:
         weather_type = WeatherType[request.weather_type.upper()]
     except KeyError:
-        raise HTTPException(status_code=400, detail=f"Invalid weather type: {request.weather_type}")
-    
+        raise HTTPException(status_code=400, detail=f"Invalid weather type: {request.weather_type}") from None
+
     # Set weather
     simulation.environment.weather = simulation.environment.weather.__class__(
         weather_type=weather_type,
@@ -332,7 +328,7 @@ async def control_weather(sim_id: str, request: WeatherControlRequest):
         humidity=0.5,
         wind_speed=20.0 if weather_type in [WeatherType.STORM, WeatherType.BLIZZARD] else 5.0
     )
-    
+
     return {
         "weather_type": weather_type.name,
         "intensity": request.intensity,
@@ -345,9 +341,9 @@ async def trigger_event(sim_id: str, request: EventTriggerRequest):
     """Trigger an environmental event."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     try:
         event = simulation.trigger_event(request.event_type, **request.params)
         return {
@@ -356,7 +352,7 @@ async def trigger_event(sim_id: str, request: EventTriggerRequest):
             "status": "triggered"
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{sim_id}/environment")
@@ -364,7 +360,7 @@ async def get_environment_state(sim_id: str):
     """Get current environment state."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     return simulation.environment.get_environmental_summary()
 
@@ -374,9 +370,9 @@ async def list_hazards(sim_id: str):
     """List active hazards."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     return {
         "hazards": [
             {
@@ -398,9 +394,9 @@ async def get_statistics(sim_id: str):
     """Get simulation statistics."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     return {
         "statistics": simulation.statistics,
         "tick": simulation.tick_count,
@@ -416,7 +412,7 @@ async def get_event_log(sim_id: str, limit: int = 100):
     """Get recent simulation events."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
     return {"events": simulation.event_log[-limit:]}
 
@@ -426,12 +422,12 @@ async def export_results(sim_id: str):
     """Export simulation results to file."""
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     filepath = f"/tmp/simulation_{sim_id}_results.json"
     simulation.export_results(filepath)
-    
+
     return {
         "status": "exported",
         "filepath": filepath,
@@ -443,10 +439,10 @@ async def export_results(sim_id: str):
 async def download_results(sim_id: str):
     """Download simulation results file."""
     filepath = f"/tmp/simulation_{sim_id}_results.json"
-    
+
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Export file not found")
-    
+
     return FileResponse(
         filepath,
         media_type="application/json",
@@ -460,24 +456,24 @@ async def download_results(sim_id: str):
 async def simulation_websocket(websocket: WebSocket, sim_id: str):
     """WebSocket for real-time simulation updates."""
     await websocket.accept()
-    
+
     if sim_id not in active_simulations:
         await websocket.send_json({"error": "Simulation not found"})
         await websocket.close()
         return
-    
+
     simulation = active_simulations[sim_id]
-    
+
     try:
         # Send initial state
         await websocket.send_json({
             "type": "initial_state",
             "data": simulation.get_state()
         })
-        
+
         # Subscribe to updates
         last_tick = simulation.tick_count
-        
+
         while True:
             # Check for updates
             if simulation.tick_count > last_tick:
@@ -498,14 +494,14 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
                     }
                 })
                 last_tick = simulation.tick_count
-            
+
             # Check for messages from client
             try:
                 message = await asyncio.wait_for(
                     websocket.receive_json(),
                     timeout=0.1
                 )
-                
+
                 # Handle commands
                 if message.get("command") == "get_agent_details":
                     agent_id = message.get("agent_id")
@@ -516,7 +512,7 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
                             "agent_id": agent_id,
                             "data": agent.get_state_summary()
                         })
-                
+
                 elif message.get("command") == "trigger_event":
                     event_type = message.get("event_type")
                     params = message.get("params", {})
@@ -525,12 +521,12 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
                         "type": "event_triggered",
                         "event_id": event.event_id
                     })
-                    
+
             except asyncio.TimeoutError:
                 pass
-            
+
             await asyncio.sleep(0.1)
-            
+
     except WebSocketDisconnect:
         pass
     except Exception as e:
@@ -542,43 +538,43 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
 async def agent_websocket(websocket: WebSocket, sim_id: str, agent_id: str):
     """WebSocket for individual agent updates."""
     await websocket.accept()
-    
+
     if sim_id not in active_simulations:
         await websocket.send_json({"error": "Simulation not found"})
         await websocket.close()
         return
-    
+
     simulation = active_simulations[sim_id]
     agent = simulation.agents.get(agent_id)
-    
+
     if not agent:
         await websocket.send_json({"error": "Agent not found"})
         await websocket.close()
         return
-    
+
     try:
         # Send initial state
         await websocket.send_json({
             "type": "initial_state",
             "data": agent.get_state_summary()
         })
-        
+
         last_action_count = len(simulation.agent_action_log)
-        
+
         while True:
             # Check for new actions by this agent
             new_actions = [
                 entry for entry in simulation.agent_action_log[last_action_count:]
                 if entry.get("agent_id") == agent_id
             ]
-            
+
             if new_actions:
                 await websocket.send_json({
                     "type": "actions",
                     "actions": new_actions
                 })
                 last_action_count = len(simulation.agent_action_log)
-            
+
             # Periodic state update
             if simulation.tick_count % 5 == 0:  # Every 5 ticks
                 await websocket.send_json({
@@ -595,9 +591,9 @@ async def agent_websocket(websocket: WebSocket, sim_id: str, agent_id: str):
                         }
                     }
                 })
-            
+
             await asyncio.sleep(0.2)
-            
+
     except WebSocketDisconnect:
         pass
     except Exception as e:

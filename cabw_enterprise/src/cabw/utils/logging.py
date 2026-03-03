@@ -2,7 +2,6 @@
 
 import logging
 import sys
-from typing import Any
 
 import structlog
 
@@ -17,7 +16,7 @@ def configure_logging() -> None:
         stream=sys.stdout,
         level=getattr(logging, settings.monitoring.log_level),
     )
-    
+
     # Configure structlog
     structlog.configure(
         processors=[

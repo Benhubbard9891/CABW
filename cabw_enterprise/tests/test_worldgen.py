@@ -7,7 +7,8 @@ Covers:
 - Biome
 """
 import pytest
-from cabw.worldgen.terrain import PerlinNoise, TerrainGenerator, TerrainType, Biome
+
+from cabw.worldgen.terrain import PerlinNoise, TerrainGenerator, TerrainType
 
 
 class TestPerlinNoise:

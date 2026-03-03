@@ -4,7 +4,7 @@ Economic Systems Module
 Resource markets, trading, and scarcity-driven agent behavior.
 """
 
-from .resources import ResourceType, Resource, ResourcePool, WorldResources
+from .resources import Resource, ResourcePool, ResourceType, WorldResources
 
 __all__ = [
     'ResourceType',

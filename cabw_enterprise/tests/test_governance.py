@@ -8,10 +8,14 @@ Covers:
 - AccessDecision
 - AuditRecord
 """
-import pytest
 from cabw.governance.security import (
-    SecurityGovernor, SecurityPolicy, SecurityContext, SecurityLevel,
-    Capability, ThreatLevel, AuditRecord, AccessDecision
+    AccessDecision,
+    AuditRecord,
+    Capability,
+    SecurityContext,
+    SecurityGovernor,
+    SecurityLevel,
+    SecurityPolicy,
 )
 
 

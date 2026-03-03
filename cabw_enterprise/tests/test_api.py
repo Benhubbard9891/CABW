@@ -8,7 +8,8 @@ Covers:
 - Error handling (404)
 """
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from cabw.api.main import app
 
 

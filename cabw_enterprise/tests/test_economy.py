@@ -7,7 +7,8 @@ Covers:
 - WorldResources
 """
 import pytest
-from cabw.economy.resources import Resource, ResourcePool, WorldResources, ResourceType
+
+from cabw.economy.resources import Resource, ResourcePool, ResourceType, WorldResources
 
 
 class TestResource:
