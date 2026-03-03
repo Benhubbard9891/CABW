@@ -58,6 +58,10 @@ class DeliberationEngine:
         need_weight: float = 0.15,
         environment_weight: float = 0.05
     ):
+        # Base weights for the six core factors (must sum to 1.0).
+        # The SOCIAL factor starts at 0.0 here; when an agent is in a team
+        # score_action() redistributes weight dynamically so that social
+        # influence actually affects the total score.
         self.weights = {
             DeliberationFactor.PERSONALITY: personality_weight,
             DeliberationFactor.EMOTION: emotion_weight,
@@ -65,8 +69,10 @@ class DeliberationEngine:
             DeliberationFactor.RELATIONSHIP: relationship_weight,
             DeliberationFactor.NEED: need_weight,
             DeliberationFactor.ENVIRONMENT: environment_weight,
-            DeliberationFactor.SOCIAL: 0.0  # Added dynamically
+            DeliberationFactor.SOCIAL: 0.0  # Allocated dynamically below
         }
+        # Fraction of total weight donated to SOCIAL when in a team.
+        self.social_weight_in_team: float = 0.1
         
         # Factor calculators
         self._calculators: Dict[DeliberationFactor, Callable] = {}
@@ -127,10 +133,23 @@ class DeliberationEngine:
         if social_score != 1.0:
             factors[DeliberationFactor.SOCIAL] = social_score
             reasoning.append(f"Social context: {social_score:.2f}")
-        
-        # Calculate weighted total
+
+        # Calculate weighted total.
+        # When the agent is in a team the social factor receives a non-zero
+        # share (social_weight_in_team) drawn proportionally from all other
+        # base weights, so the grand total always sums to 1.0.
+        if DeliberationFactor.SOCIAL in factors:
+            sw = self.social_weight_in_team
+            scale = 1.0 - sw
+            effective_weights = {
+                f: (w * scale if f != DeliberationFactor.SOCIAL else sw)
+                for f, w in self.weights.items()
+            }
+        else:
+            effective_weights = self.weights
+
         total = sum(
-            factors.get(factor, 0.0) * self.weights.get(factor, 0.0)
+            factors.get(factor, 0.0) * effective_weights.get(factor, 0.0)
             for factor in DeliberationFactor
         )
         

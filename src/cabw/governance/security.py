@@ -66,6 +66,9 @@ class Capability(Enum):
     ADMIN_SYSTEM = "admin:system"
     ADMIN_SECURITY = "admin:security"
 
+    # Execution capability
+    ACTION_EXECUTE = "action:execute"
+
 
 class ThreatLevel(Enum):
     """Threat assessment levels."""
@@ -211,47 +214,91 @@ class AccessDecision:
 
 
 @dataclass
+class SecurityContext:
+    """Context passed alongside an access-control evaluation."""
+    subject_id: str = ""
+    resource_id: str = ""
+    action: str = ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'subject_id': self.subject_id,
+            'resource_id': self.resource_id,
+            'action': self.action,
+        }
+
+
+@dataclass
 class AuditRecord:
     """Security audit record."""
     id: str = field(default_factory=lambda: str(uuid4()))
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    
+
     # Subject
     subject_type: str = ""
     subject_id: str = ""
     subject_name: Optional[str] = None
-    
+
     # Action
     action: str = ""  # 'access', 'modify', 'delete', 'create'
     capability: Optional[str] = None
-    
+
     # Resource
     resource_type: str = ""
     resource_id: str = ""
     resource_name: Optional[str] = None
-    
+
     # Decision
     decision: str = ""  # 'allow', 'deny', 'error'
     decision_reason: Optional[str] = None
     policy_id: Optional[str] = None
-    
+
     # Context
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     session_id: Optional[str] = None
     request_id: Optional[str] = None
-    
+
     # Security
     security_level: SecurityLevel = SecurityLevel.PUBLIC
     threat_level: ThreatLevel = ThreatLevel.NONE
-    
+
+    # Hash chain — each record commits to the previous record's hash
+    previous_hash: str = ""
+    record_hash: str = ""
+
     # Additional data
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def compute_hash(self) -> str:
-        """Compute tamper-evident hash of record."""
-        data = f"{self.id}:{self.timestamp.isoformat()}:{self.subject_id}:{self.action}:{self.resource_id}"
+        """Compute tamper-evident hash, chaining to previous_hash."""
+        data = (
+            f"{self.id}:{self.timestamp.isoformat()}:{self.subject_id}:"
+            f"{self.action}:{self.resource_id}:{self.previous_hash}"
+        )
         return hashlib.sha256(data.encode()).hexdigest()[:16]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'timestamp': self.timestamp.isoformat(),
+            'subject_type': self.subject_type,
+            'subject_id': self.subject_id,
+            'subject_name': self.subject_name,
+            'action': self.action,
+            'capability': self.capability,
+            'resource_type': self.resource_type,
+            'resource_id': self.resource_id,
+            'resource_name': self.resource_name,
+            'decision': self.decision,
+            'decision_reason': self.decision_reason,
+            'policy_id': self.policy_id,
+            'security_level': self.security_level.name,
+            'threat_level': self.threat_level.name,
+            'previous_hash': self.previous_hash,
+            'record_hash': self.record_hash,
+            'metadata': self.metadata,
+        }
 
 
 class SecurityGovernor:
@@ -479,6 +526,11 @@ class SecurityGovernor:
             }
         )
         
+        # Chain this record to the previous one
+        if self.audit_log:
+            record.previous_hash = self.audit_log[-1].compute_hash()
+        record.record_hash = record.compute_hash()
+
         self.audit_log.append(record)
         decision.audit_log_id = record.id
         
@@ -673,6 +725,7 @@ __all__ = [
     'ThreatLevel',
     'SecurityPolicy',
     'AccessDecision',
+    'SecurityContext',
     'AuditRecord',
     'SecurityGovernor',
     'security_governor',

@@ -9,10 +9,13 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
 from enum import Enum, auto
+from uuid import uuid4
 import hashlib
 import json
 
-from .security import SecurityGovernor, Capability, SecurityContext, AuditRecord
+from .security import (
+    SecurityGovernor, Capability, SecurityContext, AuditRecord, AccessDecision
+)
 
 
 class ExecutionStatus(Enum):
@@ -135,32 +138,32 @@ class ActionBudget:
             return None
         
         # Evaluate through governor
-        allowed, reason = self.governor.evaluate_access(
-            subject=agent,
-            resource=action,
-            capability=getattr(action, 'required_capability', Capability.EXECUTE),
-            context=context or SecurityContext(
-                subject_id=agent.agent_id,
-                resource_id=getattr(action, 'action_id', 'unknown'),
-                action=getattr(action, 'name', 'unknown')
-            )
+        ctx_dict = (context.to_dict() if isinstance(context, SecurityContext) else context) or {
+            'action': getattr(action, 'name', 'unknown'),
+        }
+        decision = self.governor.evaluate_access(
+            subject={'id': getattr(agent, 'agent_id', 'unknown'), 'type': 'agent'},
+            resource={'id': getattr(action, 'action_id', 'unknown'), 'type': 'action'},
+            capability=getattr(action, 'required_capability', Capability.ACTION_EXECUTE),
+            context=ctx_dict,
         )
-        
-        if not allowed:
+
+        if not decision.granted:
             self.stats['denials'] += 1
-            self._penalize_pad(agent, reason)
+            self._penalize_pad(agent, decision.reason)
             return None
-        
-        # Issue token
+
+        # Issue token — use uuid4 to prevent timestamp-based collisions
         now = datetime.now()
+        import datetime as _dt
         token = ExecutionToken(
-            token_id=f"tok_{now.timestamp()}_{agent.agent_id[:8]}",
+            token_id=f"tok_{uuid4().hex}",
             action_id=getattr(action, 'action_id', 'unknown'),
-            agent_id=agent.agent_id,
-            capability=Capability.EXECUTE,
+            agent_id=getattr(agent, 'agent_id', 'unknown'),
+            capability=Capability.ACTION_EXECUTE,
             issued_at=now.isoformat(),
-            expires_at=(now + __import__('datetime').timedelta(seconds=self.default_ttl)).isoformat(),
-            audit_id=self.governor.audit_log[-1].record_id if self.governor.audit_log else 'none',
+            expires_at=(now + _dt.timedelta(seconds=self.default_ttl)).isoformat(),
+            audit_id=self.governor.audit_log[-1].id if self.governor.audit_log else 'none',
             constraints=getattr(action, 'constraints', {})
         )
         
@@ -248,17 +251,16 @@ class ActionBudget:
         if token_id in self._active_tokens:
             del self._active_tokens[token_id]
             self.stats['tokens_revoked'] += 1
-            
-            # Log revocation
-            self.governor.audit_log.append(AuditRecord(
-                record_id=f"revoke_{datetime.now().timestamp()}",
-                timestamp=datetime.now().isoformat(),
-                subject_id='system',
-                action='revoke_token',
-                resource_id=token_id,
-                allowed=False,
-                reason=reason
-            ))
+
+            # Route through governor._audit() so threat detection runs and
+            # the hash chain is maintained — do NOT append directly to audit_log.
+            self.governor._audit(
+                subject={'id': 'system', 'type': 'system', 'name': 'enforcement'},
+                resource={'id': token_id, 'type': 'token'},
+                capability=Capability.ACTION_EXECUTE,
+                decision=AccessDecision(granted=False, reason=reason),
+                context={'action': 'revoke_token'},
+            )
             return True
         return False
     

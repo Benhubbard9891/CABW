@@ -26,22 +26,31 @@ CABW (Constitutional Agent-Based World) Enterprise extends the base simulation f
 cabw_enterprise/
 ├── src/cabw/
 │   ├── core/               # Core agent systems
-│   │   ├── emotions.py     # Emotional system with contagion
-│   │   ├── actions.py      # Complex action framework
-│   │   ├── teamwork.py     # Team formation and goals
-│   │   ├── behavior_tree.py # BT nodes and library
-│   │   ├── world_features.py # Environment dynamics
+│   │   ├── emotions.py         # Emotional system with contagion
+│   │   ├── actions.py          # Complex action framework
+│   │   ├── teamwork.py         # Team formation and goals
+│   │   ├── behavior_tree.py    # BT nodes and library
+│   │   ├── world_features.py   # Environment dynamics
+│   │   ├── deliberation.py     # Action deliberation engine (memory→score wire)
 │   │   └── integrated_agent.py # Unified agent class
 │   ├── simulation/
-│   │   └── engine.py       # Enhanced simulation engine
+│   │   ├── engine.py           # Enhanced simulation engine
+│   │   └── deterministic.py    # Event-queue deterministic replay engine
 │   ├── governance/
-│   │   └── security.py     # Security-first governance
+│   │   ├── security.py         # Security-first governance (PBAC, audit chain)
+│   │   └── enforcement.py      # Execution tokens and constitutional layer
+│   ├── ml/
+│   │   ├── rl_agents.py        # PPO-style RL for agent policy learning
+│   │   ├── behavior_optimization.py # Evolutionary deliberation-weight tuning
+│   │   └── nlp_interface.py    # Natural-language command interface
+│   ├── economy/
+│   │   └── resources.py        # Resource types, pools, and scarcity mechanics
 │   ├── api/
-│   │   ├── main.py         # FastAPI application
+│   │   ├── main.py             # FastAPI application
 │   │   └── routers/
-│   │       └── simulation.py # API endpoints
+│   │       └── simulation.py   # API endpoints
 │   └── db/
-│       └── models.py       # Database models
+│       └── models.py           # Database models
 ├── docker/
 │   ├── Dockerfile
 │   └── docker-compose.yml
@@ -302,7 +311,7 @@ if hazard.get_requires_teamwork():
 
 ```python
 from src.cabw.governance.security import (
-    SecurityGovernor, SecurityPolicy, Capability
+    SecurityGovernor, SecurityPolicy, Capability, SecurityLevel
 )
 
 # Create governor
@@ -310,26 +319,28 @@ governor = SecurityGovernor()
 
 # Define policy
 policy = SecurityPolicy(
-    policy_id='restricted',
     name='Restricted Actions',
-    rules=[
-        lambda s, r, c, ctx: (
-            s.security_clearance >= 2,
-            'Insufficient clearance'
-        )
-    ],
-    required_capabilities=[Capability.EXECUTE]
+    subject_type='agent',
+    resource_type='action',
+    capabilities={Capability.ACTION_EXECUTE},
+    effect='allow',
+    min_security_level=SecurityLevel.CONFIDENTIAL,
 )
 
-governor.register_policy('restricted', policy)
+governor.add_policy(policy)
 
-# Evaluate access
-allowed, reason = governor.evaluate_access(
-    subject=agent,
-    resource=target,
-    capability=Capability.EXECUTE,
-    context=security_context
+# Evaluate access — returns AccessDecision (not a tuple)
+decision = governor.evaluate_access(
+    subject={'id': agent.agent_id, 'type': 'agent'},
+    resource={'id': target_id, 'type': 'action'},
+    capability=Capability.ACTION_EXECUTE,
+    context={'action': 'execute'},
 )
+
+if decision.granted:
+    print("Access allowed")
+else:
+    print(f"Access denied: {decision.reason}")
 ```
 
 ### Audit Logging
@@ -339,11 +350,16 @@ allowed, reason = governor.evaluate_access(
 audit_record = governor.audit_log[-1]
 
 # Properties
-audit_record.timestamp
-audit_record.subject_id
-audit_record.action
-audit_record.allowed
-audit_record.hash_chain  # Tamper-evident
+audit_record.timestamp        # datetime of the event
+audit_record.subject_id       # who made the request
+audit_record.action           # 'access', 'modify', 'delete', 'create', …
+audit_record.decision         # 'allow' or 'deny'
+audit_record.decision_reason  # human-readable explanation
+
+# Hash chain — tamper-evident linkage between consecutive records
+audit_record.previous_hash    # compute_hash() of the preceding record
+audit_record.record_hash      # compute_hash() of this record
+audit_record.compute_hash()   # recompute on-demand for verification
 ```
 
 ## Configuration
