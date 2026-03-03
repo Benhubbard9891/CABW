@@ -19,9 +19,7 @@ from ..core.integrated_agent import IntegratedAgent
 from ..core.world_features import WorldEnvironment, EnvironmentEffectSystem
 from ..core.teamwork import Team, TeamManager, SharedGoal, GoalTemplates
 from ..core.emotions import GroupEmotionalClimate
-from ..core.behavior_tree import BehaviorTreeLibrary
 from ..governance.security import SecurityGovernor, SecurityPolicy, Capability
-from ..db.models import SimulationState
 
 
 @dataclass
@@ -135,7 +133,7 @@ class EnhancedSimulation:
                     'Insufficient security clearance'
                 )
             ],
-            required_capabilities=[Capability.EXECUTE]
+            required_capabilities=[Capability.ACTION_EXECUTE]
         )
         governor.register_policy('restricted', restricted_policy)
         

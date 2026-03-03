@@ -12,12 +12,11 @@ Implements:
 from __future__ import annotations
 
 import hashlib
-import hmac
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Set, Tuple
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from cabw.utils.logging import get_logger
 
@@ -68,6 +67,12 @@ class Capability(Enum):
 
     # Execution capability
     ACTION_EXECUTE = "action:execute"
+
+    # Generic API-level capabilities (used by the auth layer)
+    READ   = "read"
+    CREATE = "create"
+    DELETE = "delete"
+    ADMIN  = "admin"
 
 
 class ThreatLevel(Enum):
