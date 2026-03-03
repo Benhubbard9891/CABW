@@ -7,7 +7,8 @@ SecurityGovernor governs agent-to-agent AND API-to-simulation access.
 
 from fastapi import Depends, HTTPException, status, WebSocket
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
@@ -98,7 +99,7 @@ class APIAuthManager:
                     'Insufficient role'
                 )
             ],
-            required_capabilities=[Capability.EXECUTE]
+            required_capabilities=[Capability.ACTION_EXECUTE]
         )
         self.governor.register_policy('api_operator', operator_policy)
         
@@ -130,9 +131,9 @@ class APIAuthManager:
         # Map role to capabilities
         role_capabilities = {
             APIRole.VIEWER: [Capability.READ],
-            APIRole.OPERATOR: [Capability.READ, Capability.EXECUTE],
-            APIRole.ADMIN: [Capability.READ, Capability.EXECUTE, Capability.CREATE, Capability.DELETE, Capability.ADMIN],
-            APIRole.SYSTEM: [Capability.READ, Capability.EXECUTE, Capability.CREATE, Capability.DELETE, Capability.ADMIN]
+            APIRole.OPERATOR: [Capability.READ, Capability.ACTION_EXECUTE],
+            APIRole.ADMIN: [Capability.READ, Capability.ACTION_EXECUTE, Capability.CREATE, Capability.DELETE, Capability.ADMIN],
+            APIRole.SYSTEM: [Capability.READ, Capability.ACTION_EXECUTE, Capability.CREATE, Capability.DELETE, Capability.ADMIN]
         }
         
         self._users[username] = {
@@ -232,19 +233,19 @@ class APIAuthManager:
         
         policy_id = policy_map.get(action, 'api_viewer')
         
-        # Check through governor
+        # Check through governor — pass plain dicts so evaluate_access can call .get()
         context = SecurityContext(
             subject_id=principal.principal_id,
             resource_id=simulation_id or 'api',
-            action=action
+            action=action,
         )
-        
-        return self.governor.evaluate_access(
-            subject=principal,
-            resource={'action': action},
-            capability=Capability.EXECUTE,
-            context=context
+        decision = self.governor.evaluate_access(
+            subject={'id': principal.principal_id, 'type': 'api_principal'},
+            resource={'id': simulation_id or 'api', 'type': action},
+            capability=Capability.ACTION_EXECUTE,
+            context=context.to_dict(),
         )
+        return decision.granted, decision.reason
 
 
 # Global auth manager

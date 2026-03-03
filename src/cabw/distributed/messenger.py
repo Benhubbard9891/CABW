@@ -3,7 +3,6 @@ Redis-based Message Passing for Distributed Simulation
 """
 
 import json
-import pickle
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime

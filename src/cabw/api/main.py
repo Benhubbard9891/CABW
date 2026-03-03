@@ -9,11 +9,11 @@ FastAPI application with all enhanced features:
 - Security governance
 """
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from .routers import simulation, agents, teams, environment, governance
+from .routers import simulation
 from ..db.database import init_db
 
 

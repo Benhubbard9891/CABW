@@ -18,7 +18,7 @@ import random
 
 from .emotions import EmotionalState, EmotionType, EmotionalContagion
 from .actions import ComplexAction, ActionLibrary, ActionContext
-from .behavior_tree import BehaviorTree, Blackboard, BehaviorTreeLibrary, NodeStatus
+from .behavior_tree import BehaviorTree, Blackboard, BehaviorTreeLibrary
 from .teamwork import Team, TeamRole, SharedGoal
 from ..governance.security import SecurityGovernor, Capability, SecurityContext
 
@@ -416,7 +416,7 @@ class IntegratedAgent:
             allowed, reason = security_governor.evaluate_access(
                 subject=self,
                 resource=environment,
-                capability=Capability.EXECUTE,
+                capability=Capability.ACTION_EXECUTE,
                 context=security_context
             )
             if not allowed:

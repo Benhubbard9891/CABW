@@ -132,17 +132,14 @@ async def create_simulation(
         )
         deterministic_sims[sim_id] = deterministic
     
-    # Log creation
-    constitutional.governor.audit_log.append(
-        auth_manager.governor.audit_log.__class__(  # Reuse AuditRecord
-            record_id=f"create_{sim_id}",
-            timestamp=datetime.now().isoformat(),
-            subject_id=principal.principal_id,
-            action='create_simulation',
-            resource_id=sim_id,
-            allowed=True,
-            reason=f"Created by {principal.principal_id}"
-        )
+    # Log creation through governor so the hash chain and threat detection run
+    from ...governance.security import AccessDecision, Capability as _Cap
+    constitutional.governor._audit(
+        subject={'id': principal.principal_id, 'type': 'api_principal'},
+        resource={'id': sim_id, 'type': 'simulation'},
+        capability=_Cap.ACTION_EXECUTE,
+        decision=AccessDecision(granted=True, reason=f"Created by {principal.principal_id}"),
+        context={'action': 'create_simulation'},
     )
     
     return {
@@ -157,7 +154,7 @@ async def create_simulation(
 @router.post("/{sim_id}/start")
 async def start_simulation(
     sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.EXECUTE))
+    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Start a simulation (requires EXECUTE capability)."""
     # Check access
@@ -169,26 +166,34 @@ async def start_simulation(
     
     if sim_id not in active_simulations:
         raise HTTPException(status_code=404, detail="Simulation not found")
-    
+
     simulation = active_simulations[sim_id]
-    
+
     if simulation.running:
         raise HTTPException(status_code=400, detail="Simulation already running")
-    
-    # Start through constitutional layer
+
+    # Require constitutional layer — it must have been created during /create
     constitutional = constitutional_layers.get(sim_id)
-    
+    if not constitutional:
+        raise HTTPException(status_code=500, detail="Constitutional layer not initialized")
+
     async def run_with_governance():
-        """Run simulation with governance enforcement."""
+        """Run simulation with governance enforcement on every tick."""
         while simulation.running and simulation.tick_count < simulation.config.max_ticks:
             if not simulation.paused:
+                # Check constitutional invariants before each tick
+                passed, reason = constitutional.check_invariants(simulation, None, {})
+                if not passed:
+                    simulation.running = False
+                    break
+
                 # Emit tick event
                 if sim_id in deterministic_sims:
                     det = deterministic_sims[sim_id]
                     det.tick()
                 else:
                     await simulation.tick()
-            
+
             await asyncio.sleep(1.0 / simulation.config.tick_rate)
     
     task = asyncio.create_task(run_with_governance())
@@ -200,7 +205,7 @@ async def start_simulation(
 @router.post("/{sim_id}/pause")
 async def pause_simulation(
     sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.EXECUTE))
+    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Pause a running simulation."""
     allowed, reason = auth_manager.check_api_access(
@@ -242,7 +247,7 @@ async def execute_agent_action(
     sim_id: str,
     agent_id: str,
     request: ActionRequest,
-    principal: APIPrincipal = Depends(require_capability(Capability.EXECUTE))
+    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """
     Execute action through constitutional layer.
@@ -336,7 +341,7 @@ async def export_simulation(
 @router.post("/{sim_id}/replay")
 async def replay_simulation(
     sim_id: str,
-    principal: APIPrincipal = Depends(require_capability(Capability.EXECUTE))
+    principal: APIPrincipal = Depends(require_capability(Capability.ACTION_EXECUTE))
 ):
     """Replay simulation from event log."""
     allowed, reason = auth_manager.check_api_access(
@@ -451,7 +456,7 @@ async def simulation_websocket(websocket: WebSocket, sim_id: str):
                 
                 # Handle commands based on role
                 if message.get("command") == "trigger_event":
-                    if not principal.has_capability(Capability.EXECUTE):
+                    if not principal.has_capability(Capability.ACTION_EXECUTE):
                         await websocket.send_json({
                             "error": "Missing EXECUTE capability"
                         })
