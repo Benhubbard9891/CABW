@@ -24,10 +24,6 @@ htmlcov/
 # Type checking
 .mypy_cache/
 
-# Distribution
-dist/
-build/
-
 # IDE
 .vscode/
 .idea/
