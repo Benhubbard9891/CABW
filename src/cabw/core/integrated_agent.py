@@ -10,8 +10,9 @@ Combines all enhanced components into a unified agent architecture:
 - Environmental responsiveness
 """
 
+from collections import deque
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any, Callable
+from typing import Deque, Dict, List, Optional, Tuple, Any, Callable
 from datetime import datetime
 import uuid
 import random
@@ -148,11 +149,16 @@ class IntegratedAgent:
         agent_id: Optional[str] = None,
         name: str = "Agent",
         ocean_traits: Optional[Dict[str, float]] = None,
-        initial_location: Tuple[int, int] = (0, 0)
+        initial_location: Tuple[int, int] = (0, 0),
+        agent_role: str = 'executor',
     ):
         self.agent_id = agent_id or str(uuid.uuid4())
         self.name = name
         self.location = initial_location
+
+        # Governance role – drives token QoS allocation in SecurityGovernor.
+        # Valid values: 'executor', 'monitor', 'builder', 'coordinator', 'manager'
+        self.agent_role: str = agent_role
         
         # Core systems
         self.ocean_traits = ocean_traits or {
@@ -188,12 +194,23 @@ class IntegratedAgent:
         # Security
         self.security_clearance: int = 1
         self.assigned_capabilities: List[Capability] = []
-        
+
         # State tracking
         self.current_action: Optional[str] = None
         self.action_progress: float = 0.0
         self.tick_count: int = 0
-        
+
+        # --- Divergence / AMPA tracking (AMPA 1.7.1 Precipice Metric) ---
+        # Rolling window of governance events for threshold detection.
+        self.divergence_history: Deque[Dict[str, Any]] = deque(maxlen=30)
+        # Set True when >15% of the last 15 events are critical (severity > 0.1).
+        # Provides 20-30 tick advance warning before coherence collapse.
+        self.at_threshold: bool = False
+        # Cumulative violation counter (exposed in AMPA metrics)
+        self.violations: int = 0
+        # Drift signatures detected (e.g. repeated denial patterns)
+        self.drift_signatures: List[str] = []
+
         # Callbacks
         self.on_action_complete: Optional[Callable] = None
         self.on_emotion_change: Optional[Callable] = None
@@ -528,6 +545,59 @@ class IntegratedAgent:
             self.current_team = None
             self.team_role = None
     
+    def coherence_score(self) -> float:
+        """Compute a 0–1 coherence score (0 = incoherent, 1 = fully coherent).
+
+        Combines health, energy and emotional stability.  Used by the governor's
+        cascade-threshold detector (check_cascade_threshold).
+        """
+        health_factor = self.stats.health / max(self.stats.max_health, 1)
+        energy_factor = self.stats.energy / max(self.stats.max_energy, 1)
+
+        # Emotional stability: high arousal and extreme valence reduce coherence
+        valence = self.emotional_state.get_valence()   # typically -1..1
+        arousal = self.emotional_state.get_arousal()   # typically 0..1
+        emotional_stability = max(
+            0.0,
+            1.0 - abs(valence) * 0.5 - arousal * 0.3
+        )
+
+        return (health_factor * 0.4 + energy_factor * 0.3 + emotional_stability * 0.3)
+
+    def record_governance_event(self, event_type: str, severity: float) -> None:
+        """Record a governance event and check the divergence threshold.
+
+        Args:
+            event_type: One of 'denial', 'violation', 'timeout'.
+            severity:   Normalised severity in [0, 1].  Events with severity > 0.1
+                        count toward the threshold rate.
+
+        Sets self.at_threshold = True when >15% of the last 15 events are critical,
+        giving a 20-30 tick early warning of impending coherence collapse.
+        """
+        self.divergence_history.append({
+            'tick': self.tick_count,
+            'type': event_type,
+            'severity': severity,
+        })
+
+        if event_type == 'violation':
+            self.violations += 1
+            if 'REPEATED_DENIAL' not in self.drift_signatures:
+                denial_count = sum(
+                    1 for e in self.divergence_history if e['type'] == 'denial'
+                )
+                if denial_count >= 5:
+                    self.drift_signatures.append('REPEATED_DENIAL')
+
+        # Threshold detection – 15-event rolling window, >15% critical events
+        if len(self.divergence_history) >= 15:
+            recent = list(self.divergence_history)[-15:]
+            threshold_rate = sum(1 for e in recent if e['severity'] > 0.1) / 15
+            self.at_threshold = threshold_rate > 0.15
+        else:
+            self.at_threshold = False
+
     def get_state_summary(self) -> Dict[str, Any]:
         """Get comprehensive agent state summary."""
         return {
@@ -548,5 +618,9 @@ class IntegratedAgent:
             },
             'current_action': self.current_action,
             'team': self.current_team.team_id if self.current_team else None,
-            'team_role': self.team_role.name if self.team_role else None
+            'team_role': self.team_role.name if self.team_role else None,
+            'agent_role': self.agent_role,
+            'coherence': round(self.coherence_score(), 3),
+            'at_threshold': self.at_threshold,
+            'violations': self.violations,
         }
