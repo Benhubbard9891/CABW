@@ -28,26 +28,29 @@ class SimulationConfig:
     world_size: tuple = (20, 20)
     tick_rate: float = 1.0  # ticks per second
     max_ticks: int = 1000
-    
+
     # Agent settings
     num_agents: int = 10
     agent_personality_variance: float = 0.3
-    
+
     # Environment settings
     weather_enabled: bool = True
     hazards_enabled: bool = True
     events_enabled: bool = True
-    
+
     # Teamwork settings
     teamwork_enabled: bool = True
     auto_form_teams: bool = True
     min_team_size: int = 2
     max_team_size: int = 5
-    
+
     # Security settings
     security_level: str = 'standard'  # low, standard, high, maximum
     audit_all_actions: bool = True
-    
+    # Explicit governor rate limit (tokens/tick).  When None the value is
+    # derived from security_level: low=100, standard=50, high=20, maximum=10.
+    governor_rate_limit: Optional[int] = None
+
     # Callbacks
     on_tick: Optional[Callable] = None
     on_agent_action: Optional[Callable] = None
@@ -97,46 +100,32 @@ class EnhancedSimulation:
     
     def _setup_security(self) -> SecurityGovernor:
         """Set up security governor based on config."""
-        governor = SecurityGovernor()
-        
-        # Configure based on security level
-        level_configs = {
-            'low': {'rate_limit': 100, 'block_threshold': 20},
-            'standard': {'rate_limit': 50, 'block_threshold': 10},
-            'high': {'rate_limit': 20, 'block_threshold': 5},
-            'maximum': {'rate_limit': 10, 'block_threshold': 3}
+        # Derive rate limit: explicit config overrides the security-level default
+        level_rate_limits = {
+            'low': 100,
+            'standard': 50,
+            'high': 20,
+            'maximum': 10,
         }
-        
-        config = level_configs.get(self.config.security_level, level_configs['standard'])
-        
-        # Add default policy
-        default_policy = SecurityPolicy(
-            policy_id='default',
-            name='Default Security Policy',
-            description='Standard access control',
-            rules=[
-                lambda s, r, c, ctx: (True, None)  # Allow all by default
-            ],
-            required_capabilities=[],
-            rate_limit=config['rate_limit']
+        rate_limit = (
+            self.config.governor_rate_limit
+            if self.config.governor_rate_limit is not None
+            else level_rate_limits.get(self.config.security_level, 50)
         )
-        governor.register_policy('default', default_policy)
-        
-        # Add restricted action policy
-        restricted_policy = SecurityPolicy(
-            policy_id='restricted',
-            name='Restricted Actions',
-            description='Actions requiring elevated clearance',
-            rules=[
-                lambda s, r, c, ctx: (
-                    getattr(s, 'security_clearance', 0) >= 2,
-                    'Insufficient security clearance'
-                )
-            ],
-            required_capabilities=[Capability.ACTION_EXECUTE]
-        )
-        governor.register_policy('restricted', restricted_policy)
-        
+
+        governor = SecurityGovernor(governor_rate_limit=rate_limit)
+
+        # Allow agents to execute actions
+        governor.add_policy(SecurityPolicy(
+            name="Agent Action Allow",
+            description="Agents may execute actions through the governor",
+            subject_type="agent",
+            resource_type="action",
+            capabilities={Capability.ACTION_EXECUTE},
+            effect="allow",
+            priority=5,
+        ))
+
         return governor
     
     def add_agent(
@@ -226,14 +215,17 @@ class EnhancedSimulation:
     async def tick(self) -> Dict[str, Any]:
         """Execute one simulation tick."""
         self.tick_count += 1
-        tick_results = {
+        tick_results: Dict[str, Any] = {
             'tick': self.tick_count,
             'agent_results': {},
             'environment_results': {},
             'team_results': {},
-            'events': []
+            'events': [],
         }
-        
+
+        # 0. Advance governor tick counters (reset per-tick budget)
+        self.security_governor.new_tick(self.tick_count)
+
         # 1. Update environment
         env_results = self.environment.tick()
         tick_results['environment_results'] = env_results
@@ -297,11 +289,22 @@ class EnhancedSimulation:
         
         # 6. Check for environmental events requiring response
         self._process_environmental_events()
-        
-        # 7. Record state snapshot
-        if self.tick_count % 10 == 0:  # Every 10 ticks
+
+        # 7. Coherence-based circuit breaker: detect cascade threshold
+        live_agents = [a for a in self.agents.values() if a.stats.is_alive()]
+        cascade_active = self.security_governor.check_cascade_threshold(live_agents)
+        if cascade_active:
+            self.statistics['security_violations'] += 1
+            self._log_event('cascade_threshold_active', {
+                'tick': self.tick_count,
+                'ampa': self.security_governor.get_ampa_metrics(live_agents),
+            })
+
+        # 8. Record state snapshot (includes AMPA metrics every 10 ticks)
+        if self.tick_count % 10 == 0:
             self.state_history.append(self.get_state())
-        
+
+        tick_results['ampa'] = self.security_governor.get_ampa_metrics(live_agents)
         return tick_results
     
     def _get_nearby_agents(
@@ -433,6 +436,7 @@ class EnhancedSimulation:
     
     def get_state(self) -> Dict[str, Any]:
         """Get complete simulation state."""
+        live_agents = [a for a in self.agents.values() if a.stats.is_alive()]
         return {
             'tick': self.tick_count,
             'timestamp': datetime.now().isoformat(),
@@ -454,7 +458,8 @@ class EnhancedSimulation:
                 'intensity': self.emotional_climate.get_emotional_intensity(),
                 'stability': self.emotional_climate.get_climate_stability()
             },
-            'statistics': self.statistics
+            'statistics': self.statistics,
+            'ampa': self.security_governor.get_ampa_metrics(live_agents),
         }
     
     def _log_event(self, event_type: str, data: Dict[str, Any]):

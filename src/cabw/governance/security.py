@@ -12,10 +12,11 @@ Implements:
 from __future__ import annotations
 
 import hashlib
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 from uuid import uuid4
 
 from cabw.utils.logging import get_logger
@@ -82,6 +83,12 @@ class ThreatLevel(Enum):
     MEDIUM = 2
     HIGH = 3
     CRITICAL = 4
+
+
+class GovernorMode(Enum):
+    """Governor operating mode."""
+    NORMAL = "NORMAL"
+    CRITICAL_THRESHOLD = "CRITICAL_THRESHOLD"
 
 
 @dataclass
@@ -317,20 +324,42 @@ class SecurityGovernor:
     - Audit everything: All access attempts logged
     """
     
-    def __init__(self):
-        """Initialize security governor."""
+    def __init__(self, governor_rate_limit: int = 50):
+        """Initialize security governor.
+
+        Args:
+            governor_rate_limit: Maximum tokens issuable per tick (default 50).
+                Minimum safe value per chaos harness results: 40. Optimal: 50.
+        """
         self.policies: List[SecurityPolicy] = []
         self.audit_log: List[AuditRecord] = []
         self.rate_counters: Dict[str, List[datetime]] = {}
-        
+
         # Threat detection
         self.threat_indicators: Dict[str, Any] = {}
         self.blocked_subjects: Set[str] = set()
-        
+
         # Subject clearance registry (NOT stored on agent objects)
         # This prevents self-escalation attacks
         self._subject_clearances: Dict[str, SecurityLevel] = {}
-        
+
+        # --- Governor throughput (tokens/tick) ---
+        self.governor_rate_limit: int = max(40, governor_rate_limit)  # enforce minimum
+        self.tick_tokens_issued: int = 0
+        self.tick_tokens_denied: int = 0
+        self.current_tick: int = 0
+        self.mode: GovernorMode = GovernorMode.NORMAL
+        self.aggressive_denial: bool = False
+        self.role_tokens_issued: Dict[str, int] = {}
+
+        # Role-based QoS budgets (fractions of governor_rate_limit).
+        # Prevents high-overhead coordinator/manager roles from starving executors.
+        self._update_role_budgets()
+
+        # Cumulative stats for denial-rate calculation
+        self._total_tokens_issued: int = 0
+        self._total_tokens_denied: int = 0
+
         # Initialize default policies
         self._init_default_policies()
     
@@ -484,19 +513,174 @@ class SecurityGovernor:
         return decision
     
     def _check_rate_limit(self, subject_id: str) -> bool:
-        """Check if subject has exceeded rate limit."""
+        """Check if subject has exceeded per-minute rate limit and record the attempt."""
         now = datetime.utcnow()
         window = timedelta(minutes=1)
-        
-        # Get recent requests
+
         requests = self.rate_counters.get(subject_id, [])
         recent = [r for r in requests if now - r < window]
-        
-        # Update counter
+
+        # Record this attempt
+        recent.append(now)
         self.rate_counters[subject_id] = recent
-        
-        # Check limit (default 100 req/min)
-        return len(recent) < 100
+
+        # Use governor_rate_limit as the per-minute ceiling for individual subjects
+        return len(recent) <= self.governor_rate_limit
+
+    # ------------------------------------------------------------------
+    # Per-tick token budget (governor throughput)
+    # ------------------------------------------------------------------
+
+    def _update_role_budgets(self) -> None:
+        """Recalculate role budgets after a rate-limit change."""
+        r = self.governor_rate_limit
+        self.role_budgets: Dict[str, int] = {
+            'executor':    max(1, int(0.50 * r)),   # 3 tokens/action – lowest overhead
+            'monitor':     max(1, int(0.20 * r)),   # 1 token/action
+            'builder':     max(1, int(0.15 * r)),   # 4 tokens/action
+            'coordinator': max(1, int(0.10 * r)),   # 5 tokens/action (+67% overhead)
+            'manager':     max(1, int(0.05 * r)),   # 6 tokens/action (+100% overhead)
+        }
+
+    def new_tick(self, tick_number: int) -> None:
+        """Reset per-tick counters.  Call once at the start of every simulation tick."""
+        self.current_tick = tick_number
+        self.tick_tokens_issued = 0
+        self.tick_tokens_denied = 0
+        self.role_tokens_issued = {}
+
+    def request_token(self, agent_role: str = 'executor') -> bool:
+        """Try to consume one token from this tick's budget for *agent_role*.
+
+        Returns True if the token was granted, False if denied (budget exhausted).
+        In CRITICAL_THRESHOLD mode low-priority roles are pre-denied.
+        """
+        # In critical mode deny coordinator/manager proactively
+        if self.aggressive_denial and agent_role in ('coordinator', 'manager'):
+            self.tick_tokens_denied += 1
+            self._total_tokens_denied += 1
+            return False
+
+        # Global tick budget
+        if self.tick_tokens_issued >= self.governor_rate_limit:
+            self.tick_tokens_denied += 1
+            self._total_tokens_denied += 1
+            return False
+
+        # Role-specific budget
+        role_budget = self.role_budgets.get(agent_role, self.role_budgets['executor'])
+        role_issued = self.role_tokens_issued.get(agent_role, 0)
+        if role_issued >= role_budget:
+            self.tick_tokens_denied += 1
+            self._total_tokens_denied += 1
+            return False
+
+        # Grant
+        self.tick_tokens_issued += 1
+        self._total_tokens_issued += 1
+        self.role_tokens_issued[agent_role] = role_issued + 1
+        return True
+
+    def check_cascade_threshold(self, agents: List[Any]) -> bool:
+        """Detect Year-Zero-equivalent cascade and activate circuit breaker.
+
+        Evaluates mean agent coherence and per-tick denial rate.  When both
+        thresholds are breached the governor switches to CRITICAL_THRESHOLD
+        mode, doubles its rate limit, and enables aggressive pre-denial of
+        low-priority roles.
+
+        Returns True if the cascade threshold is active.
+        """
+        if not agents:
+            return False
+
+        coherence_scores = [
+            a.coherence_score() for a in agents
+            if callable(getattr(a, 'coherence_score', None))
+        ]
+        if not coherence_scores:
+            return False
+
+        mean_coherence = sum(coherence_scores) / len(coherence_scores)
+        total = self.tick_tokens_issued + self.tick_tokens_denied
+        denial_rate = self.tick_tokens_denied / (total + 1)
+
+        if mean_coherence < 0.5 and denial_rate > 0.2:
+            if self.mode != GovernorMode.CRITICAL_THRESHOLD:
+                logger.critical(
+                    "CRITICAL_THRESHOLD entered: mean_coherence=%.3f denial_rate=%.3f – "
+                    "doubling rate limit from %d to %d",
+                    mean_coherence, denial_rate,
+                    self.governor_rate_limit, self.governor_rate_limit * 2,
+                )
+                self.mode = GovernorMode.CRITICAL_THRESHOLD
+                self.aggressive_denial = True
+                self.governor_rate_limit *= 2
+                self._update_role_budgets()
+            return True
+
+        # Recovery: if coherence and denial_rate have improved, restore normal mode
+        if (self.mode == GovernorMode.CRITICAL_THRESHOLD
+                and mean_coherence >= 0.6 and denial_rate < 0.1):
+            logger.info(
+                "CRITICAL_THRESHOLD resolved: mean_coherence=%.3f denial_rate=%.3f – "
+                "returning to NORMAL mode",
+                mean_coherence, denial_rate,
+            )
+            self.mode = GovernorMode.NORMAL
+            self.aggressive_denial = False
+
+        return False
+
+    def get_ampa_metrics(self, agents: Optional[List[Any]] = None) -> Dict[str, Any]:
+        """Return AMPA-style forensic governance metrics snapshot.
+
+        Compatible with Prometheus/Datadog export labels:
+            cabw_governor_pressure, cabw_mean_agent_coherence,
+            cabw_denial_rate, cabw_agents_at_threshold
+        """
+        total = self.tick_tokens_issued + self.tick_tokens_denied
+        denial_rate = self.tick_tokens_denied / (total + 1)
+        governor_pressure = total / (self.governor_rate_limit + 1)
+
+        metrics: Dict[str, Any] = {
+            'tick': self.current_tick,
+            'phase': self.mode.value,
+            'governor_pressure': round(governor_pressure, 3),
+            'denial_rate': round(denial_rate, 3),
+            'tokens_issued': self.tick_tokens_issued,
+            'tokens_denied': self.tick_tokens_denied,
+            'rate_limit': self.governor_rate_limit,
+            'mean_coherence': None,
+            'agents_at_threshold': 0,
+            'agents': [],
+        }
+
+        if agents:
+            coherence_scores = []
+            agent_list = []
+            for a in agents:
+                coh = a.coherence_score() if callable(getattr(a, 'coherence_score', None)) else None
+                if coh is not None:
+                    coherence_scores.append(coh)
+                agent_list.append({
+                    'id': getattr(a, 'agent_id', str(id(a))),
+                    'coherence': round(coh, 3) if coh is not None else None,
+                    'violations': getattr(a, 'violations', 0),
+                    'drift_signatures': list(getattr(a, 'drift_signatures', [])),
+                    'threshold_event': getattr(a, 'at_threshold', False),
+                    'role': getattr(a, 'agent_role', 'executor'),
+                })
+            if coherence_scores:
+                metrics['mean_coherence'] = round(
+                    sum(coherence_scores) / len(coherence_scores), 3
+                )
+            metrics['agents_at_threshold'] = sum(
+                1 for a in agents if getattr(a, 'at_threshold', False)
+            )
+            metrics['agents'] = agent_list
+
+        return metrics
     
     def _audit(
         self,
@@ -694,16 +878,17 @@ class SecurityGovernor:
     def get_security_report(self) -> Dict[str, Any]:
         """Generate security status report."""
         recent_audits = self.audit_log[-1000:]
-        
+
         total_access = len(recent_audits)
         allowed = sum(1 for r in recent_audits if r.decision == 'allow')
         denied = sum(1 for r in recent_audits if r.decision == 'deny')
-        
-        threat_counts = {}
+
+        threat_counts: Dict[str, int] = {}
         for r in recent_audits:
             level = r.threat_level.name
             threat_counts[level] = threat_counts.get(level, 0) + 1
-        
+
+        cumulative_total = self._total_tokens_issued + self._total_tokens_denied
         return {
             'total_policies': len(self.policies),
             'active_policies': sum(1 for p in self.policies if p.is_active),
@@ -717,6 +902,16 @@ class SecurityGovernor:
             },
             'threat_summary': threat_counts,
             'top_blocked': list(self.blocked_subjects)[:10],
+            'governor': {
+                'mode': self.mode.value,
+                'rate_limit': self.governor_rate_limit,
+                'tick_tokens_issued': self.tick_tokens_issued,
+                'tick_tokens_denied': self.tick_tokens_denied,
+                'cumulative_denial_rate': round(
+                    self._total_tokens_denied / (cumulative_total + 1), 3
+                ),
+                'role_budgets': self.role_budgets,
+            },
         }
 
 
@@ -728,6 +923,7 @@ __all__ = [
     'SecurityLevel',
     'Capability',
     'ThreatLevel',
+    'GovernorMode',
     'SecurityPolicy',
     'AccessDecision',
     'SecurityContext',
